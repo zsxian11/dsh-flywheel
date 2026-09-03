@@ -82,7 +82,11 @@ export function createFlywheelService(options: FlywheelServiceOptions): Flywheel
       if (config.vectorBackend !== 'off' && vector === undefined) {
         throw new BackendNotMountedError('vector', 'cloud')
       }
-      return coreRetrieve({ graph, lexical, vector }, config, req)
+      return coreRetrieve(
+        vector === undefined ? { graph, lexical } : { graph, lexical, vector },
+        config,
+        req,
+      )
     },
 
     async ingest(node: NodeRecord, edges: readonly NewEdge[] = []): Promise<void> {

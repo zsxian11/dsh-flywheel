@@ -4,3 +4,4 @@ dist/
 *.tsbuildinfo
 .dsh/
 coverage/
+.DS_Store

@@ -1,6 +1,7 @@
 # The dsh-flywheel bundle patch: inserts the flywheel host plugins as one layer.
 # Row order carries no load semantics (activation is service-availability driven).
-# Each plugin is a subpath export of `@dsh-flywheel/dsh-bundle`.
+# Host plugins are subpath exports; flywheel-web is the package root so the
+# Web client scanner can discover `dsh.client` (it ignores subpath specifiers).
 - insert:
     - id: flywheel-store
       name: '@dsh-flywheel/dsh-bundle/store'
@@ -45,3 +46,8 @@
 
     - id: tool-flywheel
       name: '@dsh-flywheel/dsh-bundle/tools'
+
+    # Package-root row: client-modules only scans exact package specifiers
+    # (`@scope/name`). Subpath host rows do not publish the settings card.
+    - id: flywheel-web
+      name: '@dsh-flywheel/dsh-bundle'

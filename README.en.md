@@ -26,6 +26,7 @@ The full plan lives in `_docs/flywheel-plugin-plan.md` (not restated here).
 | `flywheel-index` | `@dsh-flywheel/dsh-bundle/index` | File events + purpose-sentence ingest + correction supersede |
 | `flywheel-window` | `@dsh-flywheel/dsh-bundle/window` | Idle stage-switch `compactNow` |
 | `tool-flywheel` | `@dsh-flywheel/dsh-bundle/tools` | `project_search` / `session_search` / `session_read` |
+| `flywheel-web` | `@dsh-flywheel/dsh-bundle` | Empty Host apply so the Web scanner sees `dsh.client` on the package root |
 | (browser) | `@dsh-flywheel/dsh-bundle/client` | Settings page "Session flywheel" card (zh/en dictionaries) |
 
 The service surface stays small: `ctx.flywheel.retrieve / ingest / queueClaimExtract / config()`.
@@ -37,10 +38,11 @@ The service surface stays small: `ctx.flywheel.retrieve / ingest / queueClaimExt
 ```sh
 cd /Users/zhaoshuxian/Desktop/myproject/dsh-flywheel
 
-# 1) Build lib/ (the loader imports lib/*.js directly; a link install does not compile)
+# 1) Build only after the running dsh task finishes (do not rewrite lib/ while it is live)
 pnpm --filter @dsh-flywheel/core build
 pnpm --filter @dsh-flywheel/lexical-sqlite build
-pnpm --filter @dsh-flywheel/dsh-bundle build
+pnpm --filter @dsh-flywheel/dsh-bundle build    # host: lib/*.js (includes the empty root apply)
+pnpm --filter @dsh-flywheel/dsh-bundle bundle   # browser: lib/client.js
 
 # 2) Add all three as links to the profile (core / lexical-sqlite become plain
 #    dependencies; dsh-bundle joins profile layers because it declares dsh.bundle)
@@ -58,7 +60,7 @@ Notes:
 
 - At runtime `@deepseek-ai/*` resolves from the dsh installation's shared module fallback (no registry needed).
 - Uninstall: `npx @deepseek-ai/dsh plugin --profile web remove @dsh-flywheel/dsh-bundle` (then remove the other two packages).
-- This package's settings card (`./client`, the Web client half) requires a separate client-bundle build; v1 does not ship it yet — the host half (inject / index / tools / window) works first, the card comes later.
+- The settings card needs `lib/client.js` (`pnpm --filter @dsh-flywheel/dsh-bundle bundle`) and the package-root `flywheel-web` patch row. Run `pnpm install` once in this repo before the first bundle so `tsdown` / `lightningcss` are present.
 - Once published to npm you can install with one command, `dsh plugin --profile web add dsh-flywheel-dsh-bundle`; revert the three packages' `link:` deps to version ranges at that point.
 
 After install:

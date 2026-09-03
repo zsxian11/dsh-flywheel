@@ -21,6 +21,9 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   }
 }
 
+/** Cordis plugin name used by loader diagnostics. */
+export const name = 'flywheel-web'
+
 /** Required services (cordis fiber inject). */
 export const inject = ['slots', 'locale', 'settingsScope']
 

@@ -60,14 +60,15 @@ export async function retrieve(
   for (const node of candidates.values()) {
     if (supersededDst.has(node.id)) continue
     const foreignSession = node.session_id !== undefined && node.session_id !== req.sessionId
-    cards.push({
+    const card: NodeCard = {
       id: node.id,
       type: node.type,
       title: node.title,
       summary: foreignSession ? node.summary.slice(0, FOREIGN_SESSION_TEXT_BUDGET) : node.summary,
-      path: node.path,
       foreignSession,
-    })
+    }
+    if (node.path !== undefined) card.path = node.path
+    cards.push(card)
   }
 
   cards.sort((a, b) => a.title.localeCompare(b.title))

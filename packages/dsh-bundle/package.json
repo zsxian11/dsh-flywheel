@@ -46,6 +46,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "bundle": "tsdown",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
@@ -62,10 +63,27 @@
     "@deepseek-ai/dsh-llm": "*",
     "@deepseek-ai/dsh-tools": "*",
     "@deepseek-ai/dsh-compaction": "*",
-    "@deepseek-ai/dsh-session-title": "*"
+    "@deepseek-ai/dsh-session-title": "*",
+    "@deepseek-ai/dsh-timeout": "*"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh-settings": { "optional": true },
+    "@deepseek-ai/dsh-session": { "optional": true },
+    "@deepseek-ai/dsh-agent": { "optional": true },
+    "@deepseek-ai/dsh-llm": { "optional": true },
+    "@deepseek-ai/dsh-tools": { "optional": true },
+    "@deepseek-ai/dsh-compaction": { "optional": true },
+    "@deepseek-ai/dsh-session-title": { "optional": true },
+    "@deepseek-ai/dsh-timeout": { "optional": true }
   },
   "devDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/schemastery": "^3.18.1",
     "@types/node": "^22.0.0",
+    "@types/react": "~18.3.1",
+    "lightningcss": "^1.32.0",
+    "react": "^18.2.0",
+    "tsdown": "^0.22.2",
     "typescript": "^5.5.0",
     "vitest": "^2.1.0"
   },
@@ -74,7 +92,12 @@
       "patch": "./cordis.patch.yml"
     },
     "client": {
-      "platform": "web"
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-settings-plugins"
+      ]
     }
   },
   "license": "MIT"

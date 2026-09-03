@@ -7,6 +7,7 @@ import type { Session } from '@deepseek-ai/dsh-session'
 import {
   artifactId, changeNodeId, claimNodeId, claimSuffixOf, detectClaim,
   isSupersedeUtterance, projectNodeId, sessionNodeId, SUPERSEDE_RECENT_LIMIT,
+  type NodeRecord,
 } from '@dsh-flywheel/core'
 import { FLYWHEEL_SERVICE, type FlywheelService } from './service.ts'
 import { projectId } from './project.ts'
@@ -15,15 +16,26 @@ export const name = 'flywheel-index'
 
 export const inject = ['agents', FLYWHEEL_SERVICE]
 
+/** Index writes are best-effort; an unhandled rejection is a fatal host exit. */
+function background(ctx: Context, work: Promise<unknown>): void {
+  void work.catch((error: unknown) => {
+    ctx.logger?.warn?.(error)
+  })
+}
+
 export function apply(ctx: Context): void {
   const flywheel: FlywheelService = ctx.flywheel
 
   ctx.on('agent/session-start', ({ agent }) => {
+    const config = flywheel.config()
+    if (!config.enabled) return
     const id = projectId()
     const session = agent.session
     const now = Date.now()
-    void upsertProjectNode(flywheel, id, now)
-    void upsertSessionNode(flywheel, id, session, now)
+    background(ctx, Promise.all([
+      upsertProjectNode(flywheel, id, now),
+      upsertSessionNode(flywheel, id, session, now),
+    ]))
   })
 
   // File-producing tool results → artifact + PRODUCED edge (design §6.3).
@@ -36,11 +48,15 @@ export function apply(ctx: Context): void {
     const suffix = claimSuffixOf(path)
     if (suffix === undefined) return
     const id = artifactId(projectId(), toPosixPath(path))
-    void flywheel.ingest({
+    const sessionId = exec.agent?.session.id as string | undefined
+    const artifact: NodeRecord = {
       id, type: 'artifact', project_id: projectId(), title: basenameOf(path),
       summary: '', body: '', path: toPosixPath(path), mime: mimeOf(suffix),
-      status: 'active', session_id: exec.agent?.session.id, extra: {}, updated_at: Date.now(),
-    }, [{ src: sessionNodeId(exec.agent?.session.id ?? ''), rel: 'PRODUCED', dst: id, turn_hint: undefined }])
+      status: 'active', extra: {}, updated_at: Date.now(),
+    }
+    if (sessionId !== undefined) artifact.session_id = sessionId
+    const produced = { src: sessionNodeId(sessionId ?? ''), rel: 'PRODUCED' as const, dst: id }
+    background(ctx, flywheel.ingest(artifact, [produced]))
   })
 
   // Claim rules on real user text + assistant text (queued; not awaited).
@@ -55,7 +71,7 @@ export function apply(ctx: Context): void {
 
     // Correction: supersede this session's recent active claims/changes.
     if (event.type === 'user/message' && isSupersedeUtterance(text, config.supersedePattern)) {
-      void supersedeRecent(flywheel, session)
+      background(ctx, supersedeRecent(flywheel, session))
       return
     }
 
@@ -63,12 +79,12 @@ export function apply(ctx: Context): void {
     if (evidence === undefined) return
     const id = claimNodeId()
     const now = Date.now()
-    void flywheel.ingest({
+    background(ctx, flywheel.ingest({
       id, type: 'claim', project_id: projectId(), title: evidence.utterance.slice(0, 80),
       summary: '', body: evidence.utterance, status: 'active', session_id: session.id,
       extra: { utterance: evidence.utterance, purpose: evidence.purpose, extractor: 'generic' },
       updated_at: now,
-    })
+    }))
     // Background flash rewrite; never awaited here (rule excerpt stays until it lands).
     flywheel.queueClaimExtract(id, session.id, projectId(), evidence.utterance, [])
   })
@@ -78,7 +94,7 @@ export function apply(ctx: Context): void {
     if (result.isError === true) return
     const path = writtenPath(exec.name, exec.arguments)
     if (path === undefined || !path.includes('docs/changes/')) return
-    void ingestChange(flywheel, path, exec.agent?.session.id)
+    background(ctx, ingestChange(flywheel, path, exec.agent?.session.id))
   })
 }
 
@@ -108,11 +124,13 @@ async function supersedeRecent(flywheel: FlywheelService, session: Session): Pro
 
 async function ingestChange(flywheel: FlywheelService, path: string, sessionId: string | undefined): Promise<void> {
   const id = changeNodeId(toPosixPath(path))
-  await flywheel.ingest({
+  const node: NodeRecord = {
     id, type: 'change', project_id: projectId(), title: basenameOf(path),
     summary: '', body: '', path: toPosixPath(path), status: 'active',
-    session_id: sessionId, extra: {}, updated_at: Date.now(),
-  })
+    extra: {}, updated_at: Date.now(),
+  }
+  if (sessionId !== undefined) node.session_id = sessionId
+  await flywheel.ingest(node)
 }
 
 /** Extract the written path from a tool's args when the tool name/args carry one. */

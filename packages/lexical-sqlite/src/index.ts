@@ -6,7 +6,7 @@ import { DatabaseSync } from 'node:sqlite'
 import { mkdir, open } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import type {
-  GraphStore, LexicalIndex, NodeRecord, ProviderRegistry, Rel,
+  EdgeRecord, GraphStore, LexicalIndex, NodeRecord, ProviderRegistry, Rel,
 } from '@dsh-flywheel/core'
 
 /** On-disk schema version stamped into `meta.schema_version` (design §4.1: 1). */
@@ -45,14 +45,23 @@ async function createDatabaseFile(path: string): Promise<void> {
   }
 }
 
+/** `meta.v` is TEXT; compare as an integer so `"1"` matches build `1`. */
+function schemaVersionOf(value: unknown): number {
+  if (value === undefined || value === null) return 0
+  const parsed = typeof value === 'number' ? value : Number(value)
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error(`flywheel database has an unreadable schema version ${String(value)}`)
+  }
+  return parsed
+}
+
 /** Idempotent schema application. Schema version mismatch fails loud (no in-place migration). */
 function applySchema(db: DatabaseSync, path: string): void {
   // The meta table is created before the version read so the check runs on
   // first open too; a mismatched existing database is rejected before the rest.
   db.exec('CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL)')
-  const row = db.prepare("SELECT v AS schema_version FROM meta WHERE k = 'schema_version'").get() as { schema_version: number } | undefined
-  const onDisk = row?.schema_version
-  const current = onDisk ?? 0
+  const row = db.prepare("SELECT v AS schema_version FROM meta WHERE k = 'schema_version'").get() as { schema_version: unknown } | undefined
+  const current = schemaVersionOf(row?.schema_version)
   if (current !== 0 && current !== FLYWHEEL_SCHEMA_VERSION) {
     throw new Error(`flywheel database at "${path}" has schema version ${current}, incompatible with this build (${FLYWHEEL_SCHEMA_VERSION})`)
   }
@@ -120,22 +129,31 @@ CREATE INDEX IF NOT EXISTS idx_edges_src_rel ON edges(src, rel);
 CREATE INDEX IF NOT EXISTS idx_edges_dst_rel ON edges(dst, rel);
 `
 
+function optionalString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined
+}
+
 function rowToNode(row: Record<string, unknown>): NodeRecord {
-  return {
+  const node: NodeRecord = {
     id: row.id as string,
     type: row.type as NodeRecord['type'],
     project_id: row.project_id as string,
     title: row.title as string,
     summary: row.summary as string,
     body: row.body as string,
-    path: row.path as string | undefined,
-    mime: row.mime as string | undefined,
-    hash: row.hash as string | undefined,
     status: row.status as NodeRecord['status'],
-    session_id: row.session_id as string | undefined,
     extra: JSON.parse((row.extra_json as string) || '{}') as NodeRecord['extra'],
     updated_at: row.updated_at as number,
   }
+  const path = optionalString(row.path)
+  const mime = optionalString(row.mime)
+  const hash = optionalString(row.hash)
+  const sessionId = optionalString(row.session_id)
+  if (path !== undefined) node.path = path
+  if (mime !== undefined) node.mime = mime
+  if (hash !== undefined) node.hash = hash
+  if (sessionId !== undefined) node.session_id = sessionId
+  return node
 }
 
 /** Build the concrete store from an already-open database. */
@@ -226,14 +244,18 @@ export function createSqliteFlywheelStore(db: DatabaseSync, path: string): Sqlit
       if (srcIds.length === 0) return []
       const placeholders = srcIds.map(() => '?').join(',')
       const rows = db.prepare(`SELECT * FROM edges WHERE src IN (${placeholders})`).all(...srcIds) as Array<Record<string, unknown>>
-      return rows.map(row => ({
-        id: row.id as string,
-        src: row.src as string,
-        rel: row.rel as Rel,
-        dst: row.dst as string,
-        turn_hint: row.turn_hint as string | undefined,
-        created_at: row.created_at as number,
-      }))
+      return rows.map(row => {
+        const edge: EdgeRecord = {
+          id: row.id as string,
+          src: row.src as string,
+          rel: row.rel as Rel,
+          dst: row.dst as string,
+          created_at: row.created_at as number,
+        }
+        const turnHint = optionalString(row.turn_hint)
+        if (turnHint !== undefined) edge.turn_hint = turnHint
+        return edge
+      })
     },
 
     async recentActiveSessionNodes(sessionId, type, limit) {

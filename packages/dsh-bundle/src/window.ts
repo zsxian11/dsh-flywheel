@@ -1,15 +1,45 @@
 /** `flywheel-window`: stage-switch compaction. NOT a phase state machine — when a
  * correction or window-switch heuristic fired since the last compaction, run
- * `compactNow` once the agent returns to idle. Never compacts in `agent/pre-step`. */
+ * `compactNow` once the agent returns to idle. Never compacts in `agent/pre-step`.
+ *
+ * Compaction is optional and resolved at idle: Web mounts the engine inside
+ * each preset isolate, so a host `inject: ['compaction']` never activates. */
 
 import type { Context } from '@deepseek-ai/cordis'
-import type {} from '@deepseek-ai/dsh-compaction'
 import { isWindowSwitchUtterance } from '@dsh-flywheel/core'
 import { FLYWHEEL_SERVICE, type FlywheelService } from './service.ts'
 
 export const name = 'flywheel-window'
 
-export const inject = ['agents', 'compaction', FLYWHEEL_SERVICE]
+export const inject = ['agents', FLYWHEEL_SERVICE]
+
+/** The subset of the compaction seam this plugin calls. */
+export interface CompactNow {
+  compactNow: (agent: unknown, signal: AbortSignal) => Promise<unknown>
+}
+
+/** An agent whose scope context can key a preset-isolated service lookup. */
+export interface CompactableAgent {
+  ctx: Context
+}
+
+/** Optional roster that reads a preset-isolated service for one agent. */
+interface AgentPresetRoster {
+  serviceFor(agent: CompactableAgent, name: 'compaction'): CompactNow | undefined
+}
+
+/**
+ * The compaction engine that can compact this agent, or undefined when the
+ * composition mounts none (host-disabled Web `minimal`, or no engine at all).
+ * @param ctx - host plugin context; `get` reads the global store.
+ * @param agent - the idle agent about to close a turn.
+ */
+export function compactionOf(ctx: Context, agent: CompactableAgent): CompactNow | undefined {
+  const host = ctx.get('compaction') as CompactNow | undefined
+  if (host !== undefined) return host
+  const presets = ctx.get('agentPresets') as AgentPresetRoster | undefined
+  return presets?.serviceFor(agent, 'compaction')
+}
 
 export function apply(ctx: Context): void {
   const flywheel: FlywheelService = ctx.flywheel
@@ -35,8 +65,14 @@ export function apply(ctx: Context): void {
     const config = flywheel.config()
     if (!pending || !config.windowCompact) return
     // /compact is idle-only by contract; turn-stopping is the idle boundary.
+    const compaction = compactionOf(ctx, agent)
+    if (compaction === undefined) {
+      // This agent cannot compact (e.g. Web `minimal`); drop the flag.
+      pending = false
+      return
+    }
     try {
-      await ctx.compaction.compactNow(agent, signal)
+      await compaction.compactNow(agent, signal)
       pending = false
     } catch (error) {
       // Busy: keep pending so the next idle boundary retries.

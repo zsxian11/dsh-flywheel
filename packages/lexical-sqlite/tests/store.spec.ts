@@ -1,8 +1,11 @@
 /** End-to-end backend test: real node:sqlite (in-memory) exercises DDL, FTS5, and edges. */
 
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { openSqliteFlywheelStore } from '../src/index.ts'
-import { projectNodeId, sessionNodeId } from '@dsh-flywheel/core'
+import { projectNodeId } from '@dsh-flywheel/core'
 import type { NodeRecord } from '@dsh-flywheel/core'
 
 function node(partial: Partial<NodeRecord> & { id: string; type: NodeRecord['type']; project_id: string }): NodeRecord {
@@ -47,6 +50,19 @@ describe('sqlite flywheel backend', () => {
       expect(neighbors.map(n => n.id)).toEqual(['a1'])
     } finally {
       await store.close()
+    }
+  })
+
+  it('reopens a file-backed database whose meta.v is the TEXT "1"', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'flywheel-'))
+    const path = join(dir, 'index.sqlite')
+    try {
+      const first = await openSqliteFlywheelStore(path)
+      await first.close()
+      const second = await openSqliteFlywheelStore(path)
+      await second.close()
+    } finally {
+      await rm(dir, { recursive: true, force: true })
     }
   })
 })

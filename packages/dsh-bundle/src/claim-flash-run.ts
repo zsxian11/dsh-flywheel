@@ -11,8 +11,8 @@ import {
 } from '@deepseek-ai/dsh-llm'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import { deadline } from '@deepseek-ai/dsh-timeout'
-import { artifactId } from '@dsh-flywheel/core'
-import { parseClaimFlash, resolveFlashRoute } from './claim-flash.ts'
+import { artifactId, type NodeRecord } from '@dsh-flywheel/core'
+import { parseClaimFlash, resolveFlashRoute, type FlashRouteAgent } from './claim-flash.ts'
 import type { FlywheelService } from './service.ts'
 
 /** Auxiliary request deadline (design §6.3: flash 超时 8s). */
@@ -43,8 +43,10 @@ function finishError(finish: FinishReason): Error | undefined {
       return undefined
     case 'error':
     case 'aborted': {
-      const error = new Error(finish.failure.message) as Error & { code?: string }
-      error.code = finish.failure.code
+      const failure = finish.failure
+      if (failure === undefined) return new Error(`flywheel claim flash: ${finish.kind}`)
+      const error = new Error(failure.message) as Error & { code?: string }
+      if (failure.code !== undefined) error.code = failure.code
       return error
     }
     case 'max-tokens':
@@ -90,7 +92,7 @@ async function flashOnce(
   if (!config.claimFlash) return
   const llm = ctx.get('llm') as LlmRuntime | undefined
   if (llm === undefined) return
-  const agent = (ctx.get('agents') as AgentRegistry | undefined)?.get(SessionId(sessionId))
+  const agent = (ctx.get('agents') as AgentRegistry | undefined)?.get(SessionId(sessionId)) as FlashRouteAgent | undefined
   const route = resolveFlashRoute(agent, config.summarizationModel)
   if (route === undefined) return
 
@@ -129,18 +131,21 @@ async function flashOnce(
 
   // Bind the purpose to its artifact when the model names a path.
   const posixPath = parsed.path === null ? undefined : toPosixPath(parsed.path)
-  const artifact = posixPath === undefined ? undefined : {
-    id: artifactId(projectId, posixPath),
-    type: 'artifact' as const,
-    project_id: projectId,
-    title: basenameOf(posixPath),
-    summary: '',
-    body: '',
-    path: posixPath,
-    status: 'active' as const,
-    session_id: node.session_id,
-    extra: {},
-    updated_at: Date.now(),
+  let artifact: NodeRecord | undefined
+  if (posixPath !== undefined) {
+    artifact = {
+      id: artifactId(projectId, posixPath),
+      type: 'artifact',
+      project_id: projectId,
+      title: basenameOf(posixPath),
+      summary: '',
+      body: '',
+      path: posixPath,
+      status: 'active',
+      extra: {},
+      updated_at: Date.now(),
+    }
+    if (node.session_id !== undefined) artifact.session_id = node.session_id
   }
   await service.ingest(
     { ...node, extra: { ...node.extra, purpose: parsed.purpose, kind: parsed.kind } },

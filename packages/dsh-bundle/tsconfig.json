@@ -2,10 +2,12 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "rootDir": "src",
-    "outDir": "lib/types"
+    "outDir": "lib",
+    "declarationDir": "lib/types",
+    "jsx": "react-jsx"
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"],
-  "exclude": ["tests"],
+  "include": ["src/**/*.ts", "src/**/*.d.ts"],
+  "exclude": ["tests", "src/client"],
   "references": [
     { "path": "../core" },
     { "path": "../lexical-sqlite" }

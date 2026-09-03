@@ -87,15 +87,45 @@
   font-size: 13px;
 }
 
-.input:disabled {
+.input:disabled,
+select.input:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.hint {
+.inputInvalid {
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid var(--dsw-danger, #d64545);
+  border-radius: 6px;
+  background: var(--dsw-surface, transparent);
+  color: var(--dsw-text, inherit);
+  font-size: 13px;
+}
+
+.checkbox {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
+.checkbox:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.hint,
+.invalid {
   margin: 0;
   font-size: 11px;
+}
+
+.hint {
   color: var(--dsw-text-secondary, rgba(127, 127, 127, 0.9));
+}
+
+.invalid {
+  color: var(--dsw-danger, #d64545);
 }
 
 .cardFoot {

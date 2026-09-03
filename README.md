@@ -26,6 +26,7 @@ packages/dsh-bundle/          # DSH 侧 bundle：Host 插件 + Web 设置卡片�
 | `flywheel-index` | `@dsh-flywheel/dsh-bundle/index` | 文件事件 + 用途句入库 + 纠正作废 |
 | `flywheel-window` | `@dsh-flywheel/dsh-bundle/window` | idle 换窗 `compactNow` |
 | `tool-flywheel` | `@dsh-flywheel/dsh-bundle/tools` | `project_search` / `session_search` / `session_read` |
+| `flywheel-web` | `@dsh-flywheel/dsh-bundle` | 空 Host apply，让 Web 扫描到包根上的 `dsh.client` |
 | （浏览器） | `@dsh-flywheel/dsh-bundle/client` | 设置页「会话飞轮」卡片（中英字典） |
 
 服务面保持小：`ctx.flywheel.retrieve / ingest / queueClaimExtract / config()`。
@@ -37,10 +38,11 @@ packages/dsh-bundle/          # DSH 侧 bundle：Host 插件 + Web 设置卡片�
 ```sh
 cd /Users/zhaoshuxian/Desktop/myproject/dsh-flywheel
 
-# 1) 构建 lib/（loader 直接 import lib/*.js，link 安装不会自动编译）
+# 1) 等当前 dsh 任务结束后再构建（运行中不要改 lib/）
 pnpm --filter @dsh-flywheel/core build
 pnpm --filter @dsh-flywheel/lexical-sqlite build
-pnpm --filter @dsh-flywheel/dsh-bundle build
+pnpm --filter @dsh-flywheel/dsh-bundle build    # host：lib/*.js（含包根空 apply）
+pnpm --filter @dsh-flywheel/dsh-bundle bundle   # 浏览器：lib/client.js
 
 # 2) 三个包一起以 link 加进 profile（core / lexical-sqlite 是普通依赖，
 #    dsh-bundle 因声明 dsh.bundle 自动进入 profile layers）
@@ -58,7 +60,7 @@ npx @deepseek-ai/dsh web --no-open
 
 - 运行时 `@deepseek-ai/*` 从 dsh 安装目录的共享 module fallback 解析（无需 registry）。
 - 卸载：`npx @deepseek-ai/dsh plugin --profile web remove @dsh-flywheel/dsh-bundle`（再 remove 另外两个包）。
-- 本包设置卡片（`./client`，Web client 半侧）需要按 client 打包流程单独产出，v1 尚未打包——host 半侧（注入/索引/工具/换窗）先工作，卡片后补。
+- 设置卡片需要 `lib/client.js`（`pnpm --filter @dsh-flywheel/dsh-bundle bundle`）以及 patch 里的包根行 `flywheel-web`。首次 bundle 前在本仓执行一次 `pnpm install` 以安装 `tsdown` / `lightningcss`。
 - 发布到 npm 后可用 `dsh plugin --profile web add dsh-flywheel-dsh-bundle` 一步安装；届时把三个包的 `link:` 依赖改回版本号即可。
 
 安装后：

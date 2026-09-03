@@ -25,7 +25,7 @@ export function apply(ctx: Context): void {
 
   ctx.tools.register(defineTool({
     name: 'project_search',
-    description: 'Search the current project flywheel index (artifacts, claims, changes) and return matching cards.',
+    description: 'Search flywheel index cards (artifacts, claims, changes) for this project. Not a substitute for grep/glob/read on the repo.',
     parameters: {
       query: { type: 'string', required: true, description: 'Free-text query; matched against node title/summary/body.' },
       limit: { type: 'integer', description: 'Max results. Defaults to 10.' },
@@ -46,7 +46,7 @@ export function apply(ctx: Context): void {
 
   ctx.tools.register(defineTool({
     name: 'session_search',
-    description: 'Search other sessions of the current project by their title/summary (never returns transcripts).',
+    description: 'Search other sessions of this project by title/summary cards. Never returns transcripts. Not a substitute for in-repo grep.',
     parameters: {
       query: { type: 'string', required: true, description: 'Free-text query.' },
       limit: { type: 'integer', description: 'Max results. Defaults to 10.' },
@@ -68,7 +68,7 @@ export function apply(ctx: Context): void {
 
   ctx.tools.register(defineTool({
     name: 'session_read',
-    description: 'Read one session card: its summary and recent claims. Never returns raw transcript.',
+    description: 'Read one session card (summary and recent claims). Never returns the raw transcript.',
     parameters: {
       sessionId: { type: 'string', required: true, description: 'Target session id.' },
       claims: { type: 'integer', description: 'Max recent claims to include. Defaults to 3.' },

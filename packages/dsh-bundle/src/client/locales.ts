@@ -3,14 +3,14 @@
 export type FlywheelLocaleKey =
   | 'cardTitle' | 'cardDescription'
   | 'groupWorkingSet' | 'enabled' | 'inject' | 'tools'
-  | 'ftsK' | 'hop' | 'hopExtra' | 'maxChars'
+  | 'ftsK' | 'hop' | 'hopHint' | 'hopExtra' | 'maxChars'
   | 'groupLexical' | 'lexicalBackend' | 'lexicalSqlite' | 'lexicalElasticsearch'
   | 'esNode' | 'esIndexPrefix' | 'esApiKey'
   | 'groupVector' | 'vectorBackend' | 'vectorOff' | 'vectorCloud'
   | 'vectorProvider' | 'vectorModel' | 'vectorK' | 'embedQuery' | 'embedQueryHint'
   | 'groupClaim' | 'claimFlash' | 'summarizationModel' | 'extractors' | 'mediaCaption'
   | 'groupWindow' | 'windowCompact' | 'windowPendingPattern' | 'supersedePattern'
-  | 'backendNotMounted'
+  | 'backendNotMounted' | 'invalid'
   | 'save' | 'saving' | 'discard' | 'overridden' | 'reset'
 
 export const en: Record<FlywheelLocaleKey, string> = {
@@ -22,6 +22,7 @@ export const en: Record<FlywheelLocaleKey, string> = {
   tools: 'Provide cross-session retrieval tools',
   ftsK: 'Lexical recall count',
   hop: 'Reference expansion hops',
+  hopHint: 'v1 locks this to 1 hop.',
   hopExtra: 'Expansion extra cap',
   maxChars: 'Injection char cap',
   groupLexical: 'Lexical retrieval',
@@ -50,6 +51,7 @@ export const en: Record<FlywheelLocaleKey, string> = {
   windowPendingPattern: 'Topic-switch regex',
   supersedePattern: 'Supersede regex',
   backendNotMounted: 'That backend is not installed and cannot be saved. Local SQLite full-text search stays in use.',
+  invalid: 'This value cannot be saved.',
   save: 'Save',
   saving: 'Saving…',
   discard: 'Discard',
@@ -66,6 +68,7 @@ export const zh: Record<FlywheelLocaleKey, string> = {
   tools: '提供跨会话检索工具',
   ftsK: '倒排召回条数',
   hop: '引用展开跳数',
+  hopHint: 'v1 锁定为 1 跳。',
   hopExtra: '展开额外条数上限',
   maxChars: '注入字数上限',
   groupLexical: '倒排检索',
@@ -94,6 +97,7 @@ export const zh: Record<FlywheelLocaleKey, string> = {
   windowPendingPattern: '换题正则',
   supersedePattern: '作废正则',
   backendNotMounted: '未安装该后端，无法保存。当前仍使用本地 SQLite 全文检索。',
+  invalid: '该取值无法保存。',
   save: '保存',
   saving: '保存中…',
   discard: '放弃修改',

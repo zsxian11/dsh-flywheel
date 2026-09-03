@@ -6,6 +6,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-settings'
 import { validateFlywheelConfig } from '@dsh-flywheel/core'
 import { Config, resolveConfig, type Config as FlywheelSettings } from './config.ts'
+import { FLYWHEEL_PERSONA } from './persona.ts'
 import { runClaimFlash } from './claim-flash-run.ts'
 import {
   BackendNotMountedError, createFlywheelService, FLYWHEEL_SERVICE, FLYWHEEL_SETTINGS_NAMESPACE,
@@ -38,6 +39,14 @@ export function apply(ctx: Context, config: FlywheelSettings): void {
   })
 
   ctx.provide(FLYWHEEL_SERVICE, service)
+
+  ctx.inject(['systemPrompt'], (promptCtx) => {
+    promptCtx.systemPrompt.section({
+      name: 'flywheel:persona',
+      order: 35,
+      text: () => source().enabled === false ? '' : FLYWHEEL_PERSONA,
+    })
+  })
 
   ctx.inject(['settings'], (settingsCtx) => {
     settingsCtx.settings.installSection(ctx, FLYWHEEL_SETTINGS_NAMESPACE, Config, config, {

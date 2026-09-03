@@ -1,2 +1,8 @@
 packages:
   - 'packages/*'
+
+# Harness packages are provided by a running dsh, not by npm.
+# npm still publishes stale graphs (e.g. dsh-session@0.0.1-rc.1 peers
+# @deepseek-ai/dsh-type-meta, which was renamed and is not on the registry).
+autoInstallPeers: false
+strictPeerDependencies: false
