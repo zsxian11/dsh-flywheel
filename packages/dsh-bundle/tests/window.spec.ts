@@ -1,14 +1,14 @@
 /** Host-plane compaction lookup: Web isolates the engine per preset. */
 
-import { describe, expect, it } from 'vitest'
-import { compactionOf, type CompactNow } from '../src/window.ts'
+import { describe, expect, it, vi } from 'vitest'
+import { appendWindowCompactNotice, compactionOf, name, type CompactNow } from '../src/window.ts'
 
 function ctxWith(services: Record<string, unknown>): { get(name: string): unknown } {
   return { get: (name: string) => services[name] }
 }
 
 const engine: CompactNow = { compactNow: async () => null }
-const agent = { ctx: {} as never }
+const agent = { ctx: {} as never, session: { append: () => undefined } }
 
 describe('compactionOf', () => {
   it('uses the host engine when the global store has one (TUI/headless)', () => {
@@ -33,5 +33,24 @@ describe('compactionOf', () => {
     const presets = { serviceFor: () => undefined }
     expect(compactionOf(ctxWith({ agentPresets: presets }) as never, agent)).toBeUndefined()
     expect(compactionOf(ctxWith({}) as never, agent)).toBeUndefined()
+  })
+})
+
+describe('appendWindowCompactNotice', () => {
+  it('appends a surface notice after compact so Chat can show the topic-switch row', () => {
+    const append = vi.fn()
+    appendWindowCompactNotice({ append }, '另外做 ACL')
+    expect(append).toHaveBeenCalledOnce()
+    const [type, data, opts] = append.mock.calls[0]!
+    expect(type).toBe('user/message')
+    expect(opts).toEqual({ surfaceOp: 'append' })
+    expect(data).toMatchObject({
+      source: {
+        kind: 'plugin',
+        plugin: name,
+        form: 'notice',
+        summary: '会话飞轮 · 换题后压缩历史',
+      },
+    })
   })
 })

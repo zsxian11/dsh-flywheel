@@ -1,7 +1,9 @@
-/** Working-set chrome follows the user sentence's script. */
+/** Working-set chrome and collapsed Chat-row summaries follow the user script. */
 
 import { describe, expect, it } from 'vitest'
-import { queryUsesCjk, workingSetChrome } from '../src/inject.ts'
+import {
+  queryUsesCjk, windowCompactNotice, workingSetChrome, workingSetNoticeSummary,
+} from '../src/notices.ts'
 
 describe('workingSetChrome', () => {
   it('uses Chinese chrome when the user sentence contains CJK', () => {
@@ -16,5 +18,25 @@ describe('workingSetChrome', () => {
     expect(queryUsesCjk('Write the ACL plan into the docs')).toBe(false)
     expect(chrome.title).toBe('## Flywheel working set')
     expect(chrome.disclaimer).toContain('Untrusted index cards')
+  })
+})
+
+describe('workingSetNoticeSummary', () => {
+  it('names the card count in Chinese for a CJK sentence', () => {
+    expect(workingSetNoticeSummary('换个需求', 8)).toBe('会话飞轮 · 8 张卡')
+  })
+
+  it('names the card count in English otherwise', () => {
+    expect(workingSetNoticeSummary('switch topics', 3)).toBe('Session flywheel · 3 cards')
+  })
+})
+
+describe('windowCompactNotice', () => {
+  it('labels a CJK topic-switch compaction', () => {
+    expect(windowCompactNotice('另外做 ACL').summary).toBe('会话飞轮 · 换题后压缩历史')
+  })
+
+  it('labels an English topic-switch compaction', () => {
+    expect(windowCompactNotice('new requirement').summary).toContain('topic switch')
   })
 })

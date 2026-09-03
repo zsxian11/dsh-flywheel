@@ -3,11 +3,15 @@
  * `compactNow` once the agent returns to idle. Never compacts in `agent/pre-step`.
  *
  * Compaction is optional and resolved at idle: Web mounts the engine inside
- * each preset isolate, so a host `inject: ['compaction']` never activates. */
+ * each preset isolate, so a host `inject: ['compaction']` never activates.
+ * A successful compact is followed by a Chat `notice` so the row is not
+ * mistaken for /compact or pressure compaction. */
 
 import type { Context } from '@deepseek-ai/cordis'
+import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { isWindowSwitchUtterance } from '@dsh-flywheel/core'
 import { FLYWHEEL_SERVICE, type FlywheelService } from './service.ts'
+import { windowCompactNotice } from './notices.ts'
 
 export const name = 'flywheel-window'
 
@@ -21,6 +25,27 @@ export interface CompactNow {
 /** An agent whose scope context can key a preset-isolated service lookup. */
 export interface CompactableAgent {
   ctx: Context
+  session: {
+    append(type: string, data: unknown, opts?: { surfaceOp: 'append' }): unknown
+  }
+}
+
+/**
+ * Chat `notice` after a successful topic-switch compact. Must run after
+ * `compactNow` so the replacement span does not swallow it; `user/message`
+ * is surface-eligible and requires `surfaceOp: 'append'`.
+ * @param session - the compacted agent's session.
+ * @param query - the user sentence that tripped the window-switch heuristic.
+ */
+export function appendWindowCompactNotice(
+  session: CompactableAgent['session'],
+  query: string,
+): void {
+  const notice = windowCompactNotice(query)
+  session.append('user/message', createUserMessage({
+    content: [{ type: 'text', text: notice.text }],
+    source: { kind: 'plugin', plugin: name, form: 'notice', summary: notice.summary },
+  }), { surfaceOp: 'append' })
 }
 
 /** Optional roster that reads a preset-isolated service for one agent. */
@@ -44,6 +69,7 @@ export function compactionOf(ctx: Context, agent: CompactableAgent): CompactNow 
 export function apply(ctx: Context): void {
   const flywheel: FlywheelService = ctx.flywheel
   let pending = false
+  let pendingQuery = ''
 
   // Observe the direct user sentence for a window switch. Detection only; the
   // actual compaction waits for turn-stop so it cannot race pressure compaction.
@@ -56,6 +82,7 @@ export function apply(ctx: Context): void {
     const config = flywheel.config()
     if (config.windowCompact && isWindowSwitchUtterance(text, config.windowPendingPattern)) {
       pending = true
+      pendingQuery = text
     }
   })
 
@@ -69,11 +96,15 @@ export function apply(ctx: Context): void {
     if (compaction === undefined) {
       // This agent cannot compact (e.g. Web `minimal`); drop the flag.
       pending = false
+      pendingQuery = ''
       return
     }
     try {
-      await compaction.compactNow(agent, signal)
+      const result = await compaction.compactNow(agent, signal)
       pending = false
+      const query = pendingQuery
+      pendingQuery = ''
+      if (result != null) appendWindowCompactNotice(agent.session, query)
     } catch (error) {
       // Busy: keep pending so the next idle boundary retries.
       ctx.logger?.debug?.(error)

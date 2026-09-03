@@ -11,6 +11,7 @@ declare module '@deepseek-ai/dsh-system-prompt' {}
 declare module '@deepseek-ai/dsh-session' {
   export type Session = {
     id: string
+    append(type: string, data: unknown, opts?: { surfaceOp?: string }): unknown
     [key: string]: unknown
   }
   export function SessionId(id: string): string
