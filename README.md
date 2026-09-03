@@ -30,12 +30,36 @@ packages/dsh-bundle/          # DSH 侧 bundle：Host 插件 + Web 设置卡片�
 
 服务面保持小：`ctx.flywheel.retrieve / ingest / queueClaimExtract / config()`。
 
-## 安装
+## 安装（本地 dev 实例，离线）
+
+`@dsh-flywheel/*` 尚未发布，三个包之间通过 `link:` 相对依赖相互引用，因此**离线只能用目录 link 安装**（tarball 之间离线无法解析传递依赖，已实证不可行）。装进正在运行的 dsh（本例 profile `web`）：
 
 ```sh
-# 在 DSH profile 中安装 bundle（后续步骤按你的 DSH 版本执行）
-dsh plugin --profile web add ./packages/dsh-bundle
+cd /Users/zhaoshuxian/Desktop/myproject/dsh-flywheel
+
+# 1) 构建 lib/（loader 直接 import lib/*.js，link 安装不会自动编译）
+pnpm --filter @dsh-flywheel/core build
+pnpm --filter @dsh-flywheel/lexical-sqlite build
+pnpm --filter @dsh-flywheel/dsh-bundle build
+
+# 2) 三个包一起以 link 加进 profile（core / lexical-sqlite 是普通依赖，
+#    dsh-bundle 因声明 dsh.bundle 自动进入 profile layers）
+npx @deepseek-ai/dsh plugin --profile web add \
+  link:./packages/core link:./packages/lexical-sqlite link:./packages/dsh-bundle
+
+# 3) 验证 layer 挂载（可先 --dump-config 看 flywheel 层）
+npx @deepseek-ai/dsh --profile web --dump-config
+
+# 4) 重启实例使新增 bundle 层生效
+npx @deepseek-ai/dsh web --no-open
 ```
+
+说明：
+
+- 运行时 `@deepseek-ai/*` 从 dsh 安装目录的共享 module fallback 解析（无需 registry）。
+- 卸载：`npx @deepseek-ai/dsh plugin --profile web remove @dsh-flywheel/dsh-bundle`（再 remove 另外两个包）。
+- 本包设置卡片（`./client`，Web client 半侧）需要按 client 打包流程单独产出，v1 尚未打包——host 半侧（注入/索引/工具/换窗）先工作，卡片后补。
+- 发布到 npm 后可用 `dsh plugin --profile web add dsh-flywheel-dsh-bundle` 一步安装；届时把三个包的 `link:` 依赖改回版本号即可。
 
 安装后：
 

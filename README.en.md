@@ -30,12 +30,36 @@ The full plan lives in `_docs/flywheel-plugin-plan.md` (not restated here).
 
 The service surface stays small: `ctx.flywheel.retrieve / ingest / queueClaimExtract / config()`.
 
-## Install
+## Install (local dev instance, offline)
+
+`@dsh-flywheel/*` is not published yet, and the three packages reference each other through `link:` relative dependencies, so **offline installs must use directory links** (tarball-to-tarball transitive deps cannot resolve offline without a registry — verified). To install into a running dsh (profile `web` in this example):
 
 ```sh
-# Install the bundle into a DSH profile (steps depend on your DSH version)
-dsh plugin --profile web add ./packages/dsh-bundle
+cd /Users/zhaoshuxian/Desktop/myproject/dsh-flywheel
+
+# 1) Build lib/ (the loader imports lib/*.js directly; a link install does not compile)
+pnpm --filter @dsh-flywheel/core build
+pnpm --filter @dsh-flywheel/lexical-sqlite build
+pnpm --filter @dsh-flywheel/dsh-bundle build
+
+# 2) Add all three as links to the profile (core / lexical-sqlite become plain
+#    dependencies; dsh-bundle joins profile layers because it declares dsh.bundle)
+npx @deepseek-ai/dsh plugin --profile web add \
+  link:./packages/core link:./packages/lexical-sqlite link:./packages/dsh-bundle
+
+# 3) Verify the layer mounted (optional: --dump-config to see the flywheel layer)
+npx @deepseek-ai/dsh --profile web --dump-config
+
+# 4) Restart the instance so the new bundle layer takes effect
+npx @deepseek-ai/dsh web --no-open
 ```
+
+Notes:
+
+- At runtime `@deepseek-ai/*` resolves from the dsh installation's shared module fallback (no registry needed).
+- Uninstall: `npx @deepseek-ai/dsh plugin --profile web remove @dsh-flywheel/dsh-bundle` (then remove the other two packages).
+- This package's settings card (`./client`, the Web client half) requires a separate client-bundle build; v1 does not ship it yet — the host half (inject / index / tools / window) works first, the card comes later.
+- Once published to npm you can install with one command, `dsh plugin --profile web add dsh-flywheel-dsh-bundle`; revert the three packages' `link:` deps to version ranges at that point.
 
 After install:
 
