@@ -1,0 +1,118 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+  overflow: auto;
+  padding: 16px 20px 24px;
+  box-sizing: border-box;
+}
+
+.dag {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 12px;
+  align-items: start;
+}
+
+.session {
+  grid-column: 1 / -1;
+  justify-self: center;
+  padding: 6px 14px;
+  border: 1px solid var(--dsw-accent, #4f6ef7);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--dsw-border, rgba(127, 127, 127, 0.3));
+  border-radius: 8px;
+  background: var(--dsw-surface, transparent);
+}
+
+.statValue {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.statLabel {
+  font-size: 11px;
+  color: var(--dsw-text-secondary, rgba(127, 127, 127, 0.9));
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--dsw-text-secondary, rgba(127, 127, 127, 0.9));
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--dsw-border, rgba(127, 127, 127, 0.3));
+  border-radius: 8px;
+}
+
+.title {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.path,
+.meta {
+  font-size: 12px;
+  color: var(--dsw-text-secondary, rgba(127, 127, 127, 0.9));
+  word-break: break-all;
+}
+
+.empty {
+  margin: 0;
+  font-size: 13px;
+}
+
+.hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--dsw-text-secondary, rgba(127, 127, 127, 0.9));
+}
+
+.load {
+  align-self: flex-start;
+  padding: 6px 12px;
+  border: 1px solid var(--dsw-border, rgba(127, 127, 127, 0.3));
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsw-text, inherit);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.load:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

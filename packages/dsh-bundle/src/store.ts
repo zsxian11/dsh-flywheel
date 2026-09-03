@@ -41,7 +41,9 @@ export function apply(ctx: Context, config: FlywheelSettings): void {
   ctx.provide(FLYWHEEL_SERVICE, service)
 
   ctx.inject(['systemPrompt'], (promptCtx) => {
-    promptCtx.systemPrompt.section({
+    // Runtime context, not a system section: Chat would otherwise put the
+    // flywheel rules inside the leading 「系统提示词」 disclosure.
+    promptCtx.systemPrompt.context({
       name: 'flywheel:persona',
       order: 35,
       text: () => source().enabled === false ? '' : FLYWHEEL_PERSONA,

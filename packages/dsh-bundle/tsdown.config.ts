@@ -23,6 +23,10 @@ const EXTERNALS = new Set([
   '@deepseek-ai/dsh-client-store',
   '@deepseek-ai/dsh-client-ui-slots',
   '@deepseek-ai/dsh-client-ui-primitives',
+  '@deepseek-ai/dsh-client-ui-conversation',
+  '@deepseek-ai/dsh-client-ui-conversation/client',
+  '@deepseek-ai/dsh-session',
+  '@deepseek-ai/dsh-session/types',
 ])
 
 const CSS_VIRTUAL_PREFIX = '\0dsh-css:'

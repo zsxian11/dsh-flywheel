@@ -59,6 +59,13 @@ export function apply(ctx: Context): void {
         plugin: name,
         form: 'notice',
         summary: workingSetNoticeSummary(userText, result.cards.length),
+        cards: result.cards.map(card => ({
+          id: card.id,
+          type: card.type,
+          title: card.title,
+          summary: card.summary,
+          ...card.path === undefined ? {} : { path: card.path },
+        })),
       },
     })
 

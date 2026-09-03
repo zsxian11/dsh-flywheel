@@ -11,6 +11,7 @@ import {
 } from '@dsh-flywheel/core'
 import { FLYWHEEL_SERVICE, type FlywheelService } from './service.ts'
 import { projectId } from './project.ts'
+import { pathFromToolArgs } from './paths.ts'
 
 export const name = 'flywheel-index'
 
@@ -135,14 +136,8 @@ async function ingestChange(flywheel: FlywheelService, path: string, sessionId: 
 
 /** Extract the written path from a tool's args when the tool name/args carry one. */
 export function writtenPath(toolName: string, args: unknown): string | undefined {
-  if (typeof args !== 'object' || args === null) return undefined
-  const record = args as Record<string, unknown>
-  for (const key of ['file_path', 'path', 'filePath', 'to', 'destination']) {
-    const value = record[key]
-    if (typeof value === 'string' && value.length > 0 && !value.startsWith('http')) return value
-  }
   void toolName
-  return undefined
+  return pathFromToolArgs(args)
 }
 
 function textOf(content: unknown): string | undefined {

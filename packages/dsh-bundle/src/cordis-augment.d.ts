@@ -28,6 +28,7 @@ declare module '@deepseek-ai/cordis' {
     }
     systemPrompt: {
       section(spec: { name: string; order: number; text: string | (() => string) }): unknown
+      context(spec: { name: string; order: number; text: string | (() => string) }): unknown
     }
   }
   interface Events {
