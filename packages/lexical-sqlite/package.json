@@ -10,14 +10,17 @@
     },
     "./package.json": "./package.json"
   },
-  "files": ["lib", "src"],
+  "files": [
+    "lib",
+    "src"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@dsh-flywheel/core": "workspace:*"
+    "@dsh-flywheel/core": "link:../core"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

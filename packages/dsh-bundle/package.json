@@ -39,15 +39,19 @@
     "./package.json": "./package.json",
     "./cordis.patch.yml": "./cordis.patch.yml"
   },
-  "files": ["lib", "cordis.patch.yml", "src"],
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "src"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@dsh-flywheel/core": "workspace:*",
-    "@dsh-flywheel/lexical-sqlite": "workspace:*"
+    "@dsh-flywheel/core": "link:../core",
+    "@dsh-flywheel/lexical-sqlite": "link:../lexical-sqlite"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "*",
