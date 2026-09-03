@@ -1,0 +1,143 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--dsw-border, rgba(127, 127, 127, 0.3));
+  border-radius: 10px;
+  background: var(--dsw-surface, transparent);
+}
+
+.cardHead {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.cardDescription {
+  margin: 0;
+  color: var(--dsw-text-secondary, rgba(127, 127, 127, 0.9));
+  font-size: 12px;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.groupTitle {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--dsw-text-secondary, rgba(127, 127, 127, 0.9));
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fieldHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.label {
+  font-size: 13px;
+}
+
+.overridden {
+  font-size: 11px;
+  color: var(--dsw-accent, #4f6ef7);
+}
+
+.reset {
+  margin-left: auto;
+  border: none;
+  background: none;
+  font-size: 11px;
+  color: var(--dsw-text-secondary, rgba(127, 127, 127, 0.9));
+  cursor: pointer;
+  padding: 0;
+}
+
+.reset:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.input {
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid var(--dsw-border, rgba(127, 127, 127, 0.3));
+  border-radius: 6px;
+  background: var(--dsw-surface, transparent);
+  color: var(--dsw-text, inherit);
+  font-size: 13px;
+}
+
+.input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.hint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--dsw-text-secondary, rgba(127, 127, 127, 0.9));
+}
+
+.cardFoot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.failed {
+  margin: 0;
+  font-size: 12px;
+  color: var(--dsw-danger, #d64545);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.discard,
+.save {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.discard {
+  border: 1px solid var(--dsw-border, rgba(127, 127, 127, 0.3));
+  background: transparent;
+  color: var(--dsw-text, inherit);
+}
+
+.save {
+  border: none;
+  background: var(--dsw-accent, #4f6ef7);
+  color: #fff;
+}
+
+.discard:disabled,
+.save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

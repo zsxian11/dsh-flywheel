@@ -1,0 +1,102 @@
+/** Locale dictionaries for the flywheel settings card (design §6.7 zh table). */
+
+export type FlywheelLocaleKey =
+  | 'cardTitle' | 'cardDescription'
+  | 'groupWorkingSet' | 'enabled' | 'inject' | 'tools'
+  | 'ftsK' | 'hop' | 'hopExtra' | 'maxChars'
+  | 'groupLexical' | 'lexicalBackend' | 'lexicalSqlite' | 'lexicalElasticsearch'
+  | 'esNode' | 'esIndexPrefix' | 'esApiKey'
+  | 'groupVector' | 'vectorBackend' | 'vectorOff' | 'vectorCloud'
+  | 'vectorProvider' | 'vectorModel' | 'vectorK' | 'embedQuery' | 'embedQueryHint'
+  | 'groupClaim' | 'claimFlash' | 'summarizationModel' | 'extractors' | 'mediaCaption'
+  | 'groupWindow' | 'windowCompact' | 'windowPendingPattern' | 'supersedePattern'
+  | 'backendNotMounted'
+  | 'save' | 'saving' | 'discard' | 'overridden' | 'reset'
+
+export const en: Record<FlywheelLocaleKey, string> = {
+  cardTitle: 'Session flywheel',
+  cardDescription: 'Inject project index cards for the current sentence; choose lexical and vector backends.',
+  groupWorkingSet: 'Working set',
+  enabled: 'Enable session flywheel',
+  inject: 'Auto-inject the working set',
+  tools: 'Provide cross-session retrieval tools',
+  ftsK: 'Lexical recall count',
+  hop: 'Reference expansion hops',
+  hopExtra: 'Expansion extra cap',
+  maxChars: 'Injection char cap',
+  groupLexical: 'Lexical retrieval',
+  lexicalBackend: 'Lexical backend',
+  lexicalSqlite: 'Local SQLite full-text search',
+  lexicalElasticsearch: 'Elasticsearch',
+  esNode: 'Elasticsearch endpoint',
+  esIndexPrefix: 'Index prefix',
+  esApiKey: 'API key',
+  groupVector: 'Vector retrieval (optional)',
+  vectorBackend: 'Vector backend',
+  vectorOff: 'Off',
+  vectorCloud: 'Cloud vector',
+  vectorProvider: 'Provider',
+  vectorModel: 'Model',
+  vectorK: 'Vector recall count',
+  embedQuery: 'Embed the user sentence each turn',
+  embedQueryHint: 'When on, every real user message adds one embedding call (not a chat call). Off by default: vectors are written at ingest only, retrieval stays lexical.',
+  groupClaim: 'Claim extraction',
+  claimFlash: 'Generate purpose summaries in the background',
+  summarizationModel: 'Summarization model',
+  extractors: 'Extractors',
+  mediaCaption: 'Write image/video descriptions at ingest',
+  groupWindow: 'Window & supersede',
+  windowCompact: 'Compact history when idle after a topic switch',
+  windowPendingPattern: 'Topic-switch regex',
+  supersedePattern: 'Supersede regex',
+  backendNotMounted: 'That backend is not installed and cannot be saved. Local SQLite full-text search stays in use.',
+  save: 'Save',
+  saving: 'Saving…',
+  discard: 'Discard',
+  overridden: 'Overridden',
+  reset: 'Reset to default',
+}
+
+export const zh: Record<FlywheelLocaleKey, string> = {
+  cardTitle: '会话飞轮',
+  cardDescription: '按当前这句话注入项目索引卡片；可选择倒排与向量后端。',
+  groupWorkingSet: '工作集',
+  enabled: '启用会话飞轮',
+  inject: '自动注入工作集',
+  tools: '提供跨会话检索工具',
+  ftsK: '倒排召回条数',
+  hop: '引用展开跳数',
+  hopExtra: '展开额外条数上限',
+  maxChars: '注入字数上限',
+  groupLexical: '倒排检索',
+  lexicalBackend: '倒排后端',
+  lexicalSqlite: '本地 SQLite 全文检索',
+  lexicalElasticsearch: 'Elasticsearch',
+  esNode: 'Elasticsearch 地址',
+  esIndexPrefix: '索引前缀',
+  esApiKey: 'API Key',
+  groupVector: '向量检索（可选）',
+  vectorBackend: '向量后端',
+  vectorOff: '关闭',
+  vectorCloud: '云端向量',
+  vectorProvider: '提供方',
+  vectorModel: '模型',
+  vectorK: '向量召回条数',
+  embedQuery: '每轮对用户这句话做向量检索',
+  embedQueryHint: '开启后每轮真人消息会多一次 embedding 调用（不是对话模型）。默认关闭：只在入库时写向量，查询仍走倒排。',
+  groupClaim: '陈述抽取',
+  claimFlash: '后台生成用途摘要',
+  summarizationModel: '摘要模型',
+  extractors: '抽取器',
+  mediaCaption: '入库时为图片/视频写描述',
+  groupWindow: '换窗与作废',
+  windowCompact: '换题后在空闲时压缩历史',
+  windowPendingPattern: '换题正则',
+  supersedePattern: '作废正则',
+  backendNotMounted: '未安装该后端，无法保存。当前仍使用本地 SQLite 全文检索。',
+  save: '保存',
+  saving: '保存中…',
+  discard: '放弃修改',
+  overridden: '已覆盖',
+  reset: '恢复默认',
+}

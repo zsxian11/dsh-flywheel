@@ -1,0 +1,24 @@
+{
+  "name": "@dsh-flywheel/core",
+  "version": "0.1.0",
+  "description": "Flywheel protocol + retrieval orchestration shared by the DSH bundle, CLI, and Cursor hooks. Not bound to sqlite or any DSH runtime package.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": ["lib", "src"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "vitest": "^2.1.0"
+  },
+  "license": "MIT"
+}

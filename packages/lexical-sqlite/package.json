@@ -1,0 +1,28 @@
+{
+  "name": "@dsh-flywheel/lexical-sqlite",
+  "version": "0.1.0",
+  "description": "v1 LexicalIndex + GraphStore: SQLite FTS5 body index and edges table over .dsh/flywheel/index.sqlite (node:sqlite, WAL).",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": ["lib", "src"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@dsh-flywheel/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.1.0"
+  },
+  "license": "MIT"
+}

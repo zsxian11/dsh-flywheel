@@ -1,0 +1,168 @@
+/** `flywheel-index`: writes nodes/edges from runtime facts — project/session open,
+ * file-producing tool results, claim rules on user+assistant text, and correction
+ * supersede. Zero LLM on the hot path; claim flash is queued, never awaited. */
+
+import type { Context } from '@deepseek-ai/cordis'
+import type { Session } from '@deepseek-ai/dsh-session'
+import {
+  artifactId, changeNodeId, claimNodeId, claimSuffixOf, detectClaim,
+  isSupersedeUtterance, projectNodeId, sessionNodeId, SUPERSEDE_RECENT_LIMIT,
+} from '@dsh-flywheel/core'
+import { FLYWHEEL_SERVICE, type FlywheelService } from './service.ts'
+import { projectId } from './project.ts'
+
+export const name = 'flywheel-index'
+
+export const inject = ['agents', FLYWHEEL_SERVICE]
+
+export function apply(ctx: Context): void {
+  const flywheel: FlywheelService = ctx.flywheel
+
+  ctx.on('agent/session-start', ({ agent }) => {
+    const id = projectId()
+    const session = agent.session
+    const now = Date.now()
+    void upsertProjectNode(flywheel, id, now)
+    void upsertSessionNode(flywheel, id, session, now)
+  })
+
+  // File-producing tool results → artifact + PRODUCED edge (design §6.3).
+  ctx.on('tools/result', (exec, result) => {
+    const config = flywheel.config()
+    if (!config.enabled) return
+    if (result.isError === true) return
+    const path = writtenPath(exec.name, exec.arguments)
+    if (path === undefined) return
+    const suffix = claimSuffixOf(path)
+    if (suffix === undefined) return
+    const id = artifactId(projectId(), toPosixPath(path))
+    void flywheel.ingest({
+      id, type: 'artifact', project_id: projectId(), title: basenameOf(path),
+      summary: '', body: '', path: toPosixPath(path), mime: mimeOf(suffix),
+      status: 'active', session_id: exec.agent?.session.id, extra: {}, updated_at: Date.now(),
+    }, [{ src: sessionNodeId(exec.agent?.session.id ?? ''), rel: 'PRODUCED', dst: id, turn_hint: undefined }])
+  })
+
+  // Claim rules on real user text + assistant text (queued; not awaited).
+  ctx.on('session/event', (session, event) => {
+    const config = flywheel.config()
+    if (!config.enabled) return
+    if (event.type !== 'user/message' && event.type !== 'assistant/message') return
+    const data = event.data as { content?: unknown; source?: { kind?: string } }
+    if (event.type === 'user/message' && data.source?.kind !== 'user') return
+    const text = textOf(data.content)
+    if (text === undefined || text === '') return
+
+    // Correction: supersede this session's recent active claims/changes.
+    if (event.type === 'user/message' && isSupersedeUtterance(text, config.supersedePattern)) {
+      void supersedeRecent(flywheel, session)
+      return
+    }
+
+    const evidence = detectClaim(text)
+    if (evidence === undefined) return
+    const id = claimNodeId()
+    const now = Date.now()
+    void flywheel.ingest({
+      id, type: 'claim', project_id: projectId(), title: evidence.utterance.slice(0, 80),
+      summary: '', body: evidence.utterance, status: 'active', session_id: session.id,
+      extra: { utterance: evidence.utterance, purpose: evidence.purpose, extractor: 'generic' },
+      updated_at: now,
+    })
+    // Background flash rewrite; never awaited here (rule excerpt stays until it lands).
+    flywheel.queueClaimExtract(id, session.id, projectId(), evidence.utterance, [])
+  })
+
+  // docs/changes/**/*.md writes become change nodes that SUPERSEDE the prior topic.
+  ctx.on('tools/result', (exec, result) => {
+    if (result.isError === true) return
+    const path = writtenPath(exec.name, exec.arguments)
+    if (path === undefined || !path.includes('docs/changes/')) return
+    void ingestChange(flywheel, path, exec.agent?.session.id)
+  })
+}
+
+async function upsertProjectNode(flywheel: FlywheelService, id: string, now: number): Promise<void> {
+  await flywheel.ingest({
+    id: projectNodeId(id), type: 'project', project_id: id, title: id,
+    summary: '', body: '', status: 'active', extra: {}, updated_at: now,
+  })
+}
+
+async function upsertSessionNode(flywheel: FlywheelService, id: string, session: Session, now: number): Promise<void> {
+  const title = sessionTitle(session)
+  await flywheel.ingest({
+    id: sessionNodeId(session.id), type: 'session', project_id: id, title,
+    summary: '', body: '', status: 'active', session_id: session.id,
+    extra: {}, updated_at: now,
+  })
+}
+
+async function supersedeRecent(flywheel: FlywheelService, session: Session): Promise<void> {
+  const graph = flywheel.graph()
+  if (graph === undefined) return
+  const claims = await graph.recentActiveSessionNodes(session.id, 'claim', SUPERSEDE_RECENT_LIMIT)
+  const changes = await graph.recentActiveSessionNodes(session.id, 'change', SUPERSEDE_RECENT_LIMIT)
+  await graph.supersede([...claims, ...changes])
+}
+
+async function ingestChange(flywheel: FlywheelService, path: string, sessionId: string | undefined): Promise<void> {
+  const id = changeNodeId(toPosixPath(path))
+  await flywheel.ingest({
+    id, type: 'change', project_id: projectId(), title: basenameOf(path),
+    summary: '', body: '', path: toPosixPath(path), status: 'active',
+    session_id: sessionId, extra: {}, updated_at: Date.now(),
+  })
+}
+
+/** Extract the written path from a tool's args when the tool name/args carry one. */
+export function writtenPath(toolName: string, args: unknown): string | undefined {
+  if (typeof args !== 'object' || args === null) return undefined
+  const record = args as Record<string, unknown>
+  for (const key of ['file_path', 'path', 'filePath', 'to', 'destination']) {
+    const value = record[key]
+    if (typeof value === 'string' && value.length > 0 && !value.startsWith('http')) return value
+  }
+  void toolName
+  return undefined
+}
+
+function textOf(content: unknown): string | undefined {
+  if (!Array.isArray(content)) return undefined
+  return content
+    .filter((block): block is { type: 'text'; text: string } =>
+      typeof block === 'object' && block !== null && (block as { type?: string }).type === 'text')
+    .map(block => block.text)
+    .join('\n')
+}
+
+function sessionTitle(session: Session): string {
+  return `session ${session.id}`
+}
+
+function basenameOf(path: string): string {
+  const parts = path.replace(/\\/g, '/').split('/')
+  return parts[parts.length - 1] ?? path
+}
+
+function toPosixPath(path: string): string {
+  return path.replace(/\\/g, '/')
+}
+
+function mimeOf(suffix: string): string {
+  switch (suffix) {
+    case '.pptx': case '.ppt': return 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+    case '.xlsx': case '.xls': return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    case '.docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    case '.pdf': return 'application/pdf'
+    case '.md': return 'text/markdown'
+    case '.png': return 'image/png'
+    case '.jpg': case '.jpeg': return 'image/jpeg'
+    case '.webp': return 'image/webp'
+    case '.gif': return 'image/gif'
+    case '.mp4': return 'video/mp4'
+    case '.mov': return 'video/quicktime'
+    case '.webm': return 'video/webm'
+    default: return 'application/octet-stream'
+  }
+}

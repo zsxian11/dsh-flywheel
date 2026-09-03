@@ -1,5 +1,7 @@
 # dsh-flywheel
 
+[English](README.en.md) | 中文
+
 面向 **DeepSeek Harness（DSH）** 的「会话飞轮」插件 —— 仓外独立仓库（v1），与 Cursor 侧共用同一套索引与检索协议。
 
 一句话目标：在**单会话隔离**下，让一条龙长会话接近 Cursor 的「当前句只带工作集」；用项目级产物图 + 倒排在会话之间传递短卡，而不是把 transcript 糊在一起。
@@ -41,6 +43,7 @@ dsh plugin --profile web add ./packages/dsh-bundle
 - 首步真人消息注入 ≤ `ftsK` 张节点卡 + 1 跳 ≤ `hopExtra` 张；digest 相同不重复注入。
 - 工具循环 / 子代理不重复检索；写出的 pptx/pdf/xlsx/… 落 `PRODUCED` 边。
 - 用户纠正（`不对|不是|改成|作废…`，大小写/中英均可）把最近 3 条 active claim/change 标 `superseded`。
+- 规则命中后，后台用 `summarizationModel`（默认 `deepseek-v4-flash`）把用途句改成 ≤80 字目的 + 绑定路径；超时 8s 或失败保留规则摘录，绝不 await 在 pre-step（§7.3 claim flash）。
 
 ## 配置（schema = 设置页 = CLI JSON，禁止硬编码 K）
 
@@ -60,7 +63,7 @@ dsh plugin --profile web add ./packages/dsh-bundle
 
 ```sh
 pnpm install
-pnpm -r test        # core（fake index 换 sqlite 仍绿）+ lexical-sqlite（真实 in-memory FTS5）
+pnpm -r test        # core（fake index 换 sqlite 仍绿）+ lexical-sqlite（真实 in-memory FTS5）+ claim-flash 解析
 pnpm -r typecheck
 pnpm -r build
 ```

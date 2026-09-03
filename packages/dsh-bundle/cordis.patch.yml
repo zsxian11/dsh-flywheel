@@ -1,0 +1,47 @@
+# The dsh-flywheel bundle patch: inserts the flywheel host plugins as one layer.
+# Row order carries no load semantics (activation is service-availability driven).
+# Each plugin is a subpath export of `@dsh-flywheel/dsh-bundle`.
+- insert:
+    - id: flywheel-store
+      name: '@dsh-flywheel/dsh-bundle/store'
+      config:
+        enabled: true
+        inject: true
+        tools: true
+        dbRelativePath: .dsh/flywheel/index.sqlite
+        ftsK: 8
+        hop: 1
+        hopExtra: 5
+        maxChars: 3000
+        lexicalBackend: sqlite-fts
+        elasticsearch:
+          node: http://127.0.0.1:9200
+          indexPrefix: dsh-flywheel
+        vectorBackend: off
+        vector:
+          provider: ''
+          model: ''
+          vectorK: 8
+          embedQuery: false
+        claimFlash: true
+        summarizationModel: deepseek-v4-flash
+        extractors: [generic]
+        mediaCaption: false
+        windowCompact: true
+        windowPendingPattern: '另外|换个|新需求|先不管刚才|开始实现|开始写代码'
+        supersedePattern: '不对|不是|改成|作废|作废上次|取消刚才|不要按上次|口径改了|需求变了'
+
+    - id: flywheel-lexical-sqlite
+      name: '@dsh-flywheel/dsh-bundle/lexical-sqlite'
+
+    - id: flywheel-inject
+      name: '@dsh-flywheel/dsh-bundle/inject'
+
+    - id: flywheel-index
+      name: '@dsh-flywheel/dsh-bundle/index'
+
+    - id: flywheel-window
+      name: '@dsh-flywheel/dsh-bundle/window'
+
+    - id: tool-flywheel
+      name: '@dsh-flywheel/dsh-bundle/tools'
