@@ -49,6 +49,8 @@ const SPECS = [
   booleanField('windowCompact'),
   textField('windowPendingPattern'),
   textField('supersedePattern'),
+  booleanField('trimToolResults'),
+  numberField('maxToolResultChars', { min: 1000, max: 32000 }),
 ]
 
 const SECRETS = [{ field: 'esApiKey', path: ['elasticsearch', 'apiKey'] }]

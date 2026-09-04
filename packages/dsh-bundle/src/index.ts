@@ -18,6 +18,7 @@ export * as flywheelLexicalSqlite from './lexical-sqlite.ts'
 export * as flywheelInject from './inject.ts'
 export * as flywheelIndex from './indexer.ts'
 export * as flywheelWindow from './window.ts'
+export * as flywheelTrim from './trim.ts'
 export * as toolFlywheel from './tools.ts'
 
 /** Cordis plugin name used by loader diagnostics. */

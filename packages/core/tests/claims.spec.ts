@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_CONFIG } from '../src/config.ts'
-import { claimSuffixOf, detectClaim, isSupersedeUtterance, isWindowSwitchUtterance } from '../src/claims.ts'
+import { claimSuffixOf, detectClaim, isImplementUtterance, isPlanChangePath, isSupersedeUtterance, isWindowSwitchUtterance } from '../src/claims.ts'
 
 describe('claim detection', () => {
   it('matches artifact suffixes', () => {
@@ -39,5 +39,17 @@ describe('heuristics', () => {
   it('window-switch pattern from config', () => {
     expect(isWindowSwitchUtterance('另外，帮我看看另一个需求', DEFAULT_CONFIG.windowPendingPattern)).toBe(true)
     expect(isWindowSwitchUtterance('开始实现刚才讨论的', DEFAULT_CONFIG.windowPendingPattern)).toBe(true)
+  })
+
+  it('implement-intent is a subset of the default window-switch pattern', () => {
+    expect(isImplementUtterance('开始实现刚才讨论的')).toBe(true)
+    expect(isImplementUtterance('开始写代码')).toBe(true)
+    expect(isImplementUtterance('另外，帮我看看另一个需求')).toBe(false)
+  })
+
+  it('plan-change paths are docs/changes markdown', () => {
+    expect(isPlanChangePath('docs/changes/acl.md')).toBe(true)
+    expect(isPlanChangePath('src/foo.ts')).toBe(false)
+    expect(isPlanChangePath(undefined)).toBe(false)
   })
 })

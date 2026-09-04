@@ -133,4 +133,8 @@ export interface FlywheelConfig {
   windowCompact: boolean
   windowPendingPattern: string
   supersedePattern: string
+  /** Bound oversized tool results (including `read`) before they enter history. */
+  trimToolResults: boolean
+  /** UTF-16 char cap for one model-facing tool result when trimming is on. */
+  maxToolResultChars: number
 }

@@ -25,6 +25,7 @@ The full plan lives in `_docs/flywheel-plugin-plan.md` (not restated here).
 | `flywheel-inject` | `@dsh-flywheel/dsh-bundle/inject` | `agent/pre-step` working-set injection (step 1 + real user message, digest dedupe) |
 | `flywheel-index` | `@dsh-flywheel/dsh-bundle/index` | File events + purpose-sentence ingest + correction supersede |
 | `flywheel-window` | `@dsh-flywheel/dsh-bundle/window` | Idle stage-switch `compactNow` |
+| `flywheel-trim` | `@dsh-flywheel/dsh-bundle/trim` | `tools/post-execute` bounds oversized tool results (including `read`, default 8000 chars) |
 | `tool-flywheel` | `@dsh-flywheel/dsh-bundle/tools` | `project_search` / `session_search` / `session_read` |
 | `flywheel-web` | `@dsh-flywheel/dsh-bundle` | Empty Host apply so the Web scanner sees `dsh.client` on the package root |
 | (browser) | `@dsh-flywheel/dsh-bundle/client` | Settings page "Session flywheel" card (zh/en dictionaries) |
@@ -67,6 +68,7 @@ After install:
 
 - **Settings → Plugin configuration** shows a card titled "Session flywheel" (not Flywheel / the package name).
 - The first-step real user message injects ≤ `ftsK` node cards + 1 hop ≤ `hopExtra`; an unchanged digest does not re-inject.
+- Tool results (including `read`) over `maxToolResultChars` (default 8000) become a head/tail preview, so later steps do not replay whole files. Trim runs inner of spill; if official spill still writes a file, the spill path is stripped from `read` results.
 - Tool loops / subagents never re-retrieve; written pptx/pdf/xlsx/… get a `PRODUCED` edge.
 - A user correction (`不对|不是|改成|作废…`, any case, Chinese/English) marks the last 3 active claim/change nodes `superseded`.
 - After a rule hit, `summarizationModel` (default `deepseek-v4-flash`) rewrites the purpose sentence in the background to a ≤80-char purpose + bound path; an 8s timeout or any failure keeps the rule excerpt, and this never awaits in pre-step (§7.3 claim flash).
@@ -77,13 +79,28 @@ Field names and defaults live in `packages/core/src/config.ts` (`DEFAULT_CONFIG`
 
 - `ftsK` / `hopExtra` / `vectorK` positive integers; `hop` must be `1` (v1 does not open multi-hop).
 - `maxChars` 500–8000.
+- `maxToolResultChars` 1000–32000; `trimToolResults` is on by default. This only bounds **in-turn** tool results written into history; it does not skip a model API call.
 - `lexicalBackend` must be mounted; v1 mounts only `sqlite-fts`. Selecting `elasticsearch` without its provider rejects the save (fail loud); sqlite retrieval is unaffected.
 - `vectorBackend: off` (default) means zero embeddings on the hot path; v1 does not implement ES / cloud vector — interfaces and card fields are reserved (P6/P7).
 - Secrets use `role('secret')` and never appear in settings read responses.
 
+## Why an in-turn loop is still expensive
+
+Every tool-loop step is still one Messages call. The flywheel cannot fold 142 calls into one. The bill has two parts:
+
+1. **Call count**: the model stops after each `read`. The persona now asks it to fire `grep` / `glob` / `read` in parallel and not recap after every file.
+2. **Prompt size**: `flywheel-trim` bounds each tool result (including `read`) to `maxToolResultChars` *inside* spill, so official DSH does not spill a huge `read` to a file the model then re-reads. Compaction still waits until about 80% of the window for pressure; a topic switch tries `compactIfNeeded('forced')` on step 1, then `'context-overflow'` on the official engine (same threshold bypass). `compactNow` stays idle-only. This stays append-only for prefix cache.
+3. **Reasoning passback**: DeepSeek replays each step's `reasoning_content` verbatim on later requests. A High first-thought dump is billed as output once, then as input on every later step. The flywheel cannot truncate it (official passback). The real lever is `off` / `low` reasoning; the persona only asks for the user's language and a short plan before tools.
+
+Levers outside this repo (P0 user config): a thin preset (`coding-search` with `/plan` and gated web), spill `maxInlineBytes: 12000`, compaction `thresholdRatio: 0.5` + `retainTokens: 16384`, and not using High reasoning to wander the tree. Switching the Host search backend to Exa/Perplexity remains a later Host change.
+
 ## Retrieval protocol (the only hot-path algorithm, §4.3)
 
 Inverted `search(query, { k: ftsK })` (active, current project) → optional vector RRF (off by default) → exactly 1 hop (edges PRODUCED/DESCRIBES/CITES/SUPERSEDES/CONTINUES/PART_OF) → expand ≤ `hopExtra` → drop still-active SUPERSEDES dsts → other-session nodes keep only title+summary (≤200 chars) → render ≤ `maxChars` → `digest = sha256(sorted ids + query + lexicalBackend)`, unchanged when equal. Zero LLM end to end.
+
+## Same-session end-to-end
+
+Open a new session on "编码检索". Fix simple bugs directly. For hard work, `/plan` first and write `docs/changes/<slug>.md` before approval; when the user says to start implementing, step 1 of that turn tries to compact older history and injects the plan card. `web_search` is in the catalog from the first turn, but repo facts use grep first — search only for current external docs. Switch topics with "另外…".
 
 ## Develop
 
@@ -107,7 +124,7 @@ pnpm -r build
 2. After a topic switch the working-set cards change and no superseded card reappears — `core/retrieve.ts` + `flywheel-window`.
 3. "Generate a Q3 budget PPT" is FTS-findable from a new session after the file/purpose lands — `flywheel-index`.
 4. Other sessions' raw text never auto-injects; `session_search` finds their titles — `retrieve` foreign-session truncation + `tool-flywheel`.
-5. Coding-search + 12k spill at start; compact only when idle — P0 user config, outside this repo.
+5. Start with `coding-search` (bash + search + `/plan` + gated web) + 12k spill; topic-switch tries step-1 `forced` then `context-overflow`, and `compactNow` stays idle-only — preset at `~/.dsh/.agent-presets/coding-search/`.
 6. Finance / HR work with zero extra extractors — `generic` is built in.
 7. The settings page shows the "Session flywheel" card; changing "injection char cap" applies next turn — `dsh-bundle` client + store.
 8. Saving an unmounted ES / cloud vector fails; sqlite retrieval stays intact — store `validate`.

@@ -36,6 +36,8 @@ export interface Config {
   windowCompact?: boolean
   windowPendingPattern?: string
   supersedePattern?: string
+  trimToolResults?: boolean
+  maxToolResultChars?: number
 }
 
 export const Config: z<Config> = z.object({
@@ -67,6 +69,8 @@ export const Config: z<Config> = z.object({
   windowCompact: z.boolean().default(true),
   windowPendingPattern: z.string().default('另外|换个|新需求|先不管刚才|开始实现|开始写代码'),
   supersedePattern: z.string().default('不对|不是|改成|作废|作废上次|取消刚才|不要按上次|口径改了|需求变了'),
+  trimToolResults: z.boolean().default(true),
+  maxToolResultChars: z.number().step(1).min(1000).max(32000).default(8000),
 })
 
 /** Merge the settings section (schema-defaulted) over the core constants. */

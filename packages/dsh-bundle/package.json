@@ -28,6 +28,10 @@
       "types": "./lib/types/window.d.ts",
       "default": "./lib/window.js"
     },
+    "./trim": {
+      "types": "./lib/types/trim.d.ts",
+      "default": "./lib/trim.js"
+    },
     "./tools": {
       "types": "./lib/types/tools.d.ts",
       "default": "./lib/tools.js"

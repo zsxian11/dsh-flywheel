@@ -22,6 +22,7 @@ declare module '@deepseek-ai/cordis' {
     }
     compaction?: {
       compactNow: (...args: unknown[]) => Promise<unknown> | unknown
+      compactIfNeeded?: (...args: unknown[]) => Promise<unknown> | unknown
     }
     agentPresets?: {
       serviceFor(agent: { ctx: Context }, name: 'compaction'): Context['compaction']
@@ -36,6 +37,7 @@ declare module '@deepseek-ai/cordis' {
     'agent/session-start'(...args: any[]): any
     'agent/turn-stopping'(...args: any[]): any
     'tools/result'(...args: any[]): any
+    'tools/post-execute'(...args: any[]): any
     'session/event'(...args: any[]): any
   }
 }

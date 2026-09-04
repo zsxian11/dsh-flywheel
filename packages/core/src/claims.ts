@@ -56,6 +56,25 @@ export function isWindowSwitchUtterance(text: string, pattern: string): boolean 
   return new RegExp(pattern, 'u').test(sanitize(text))
 }
 
+/** Implement-intent heuristic: user asked to start coding after a design discussion. */
+export const IMPLEMENT_UTTERANCE_RE = /开始实现|开始写代码/u
+
+/** Detect an implement-intent sentence that should look for a docs/changes plan file. */
+export function isImplementUtterance(text: string): boolean {
+  return IMPLEMENT_UTTERANCE_RE.test(sanitize(text))
+}
+
+/** Path fragment that makes a change node a durable plan file. */
+export const PLAN_CHANGE_PATH = 'docs/changes/'
+
+/** Whether a stored path is a flywheel plan-change file. */
+export function isPlanChangePath(path: string | undefined): boolean {
+  return path !== undefined && path.replace(/\\/g, '/').includes(PLAN_CHANGE_PATH)
+}
+
+/** How many recent change nodes to inspect for a docs/changes plan. */
+export const PLAN_CHANGE_LOOKBACK = 8
+
 /** Recent nodes to supersede on a correction: this session's last `limit` active claims/changes. */
 export const SUPERSEDE_RECENT_LIMIT = 3
 

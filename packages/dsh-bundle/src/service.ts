@@ -1,5 +1,5 @@
 /** Shared host-side flywheel service + registry. The `flywheel` service is what
- * `flywheel-inject`, `flywheel-index`, `flywheel-window`, and `tool-flywheel`
+ * `flywheel-inject`, `flywheel-index`, `flywheel-window`, `flywheel-trim`, and `tool-flywheel`
  * inject; providers mount backends into it. */
 
 import type {

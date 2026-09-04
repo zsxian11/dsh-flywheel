@@ -44,3 +44,20 @@ export function windowCompactNotice(query: string): { summary: string; text: str
     text: 'Session flywheel compacted this session history at idle after a topic switch. This is not /compact and not pressure compaction.',
   }
 }
+
+/**
+ * Notice when the user asks to implement but this session has no docs/changes plan file.
+ * @param query - the implement-intent sentence (script probe).
+ */
+export function missingPlanNotice(query: string): { summary: string; text: string } {
+  if (queryUsesCjk(query)) {
+    return {
+      summary: '会话飞轮 · 先写方案文件',
+      text: '还没有本会话的 docs/changes 方案文件。先把目标、范围、非目标和验收写进 docs/changes，再按该文件实现；不要只凭刚才的讨论开工。',
+    }
+  }
+  return {
+    summary: 'Session flywheel · write the plan file first',
+    text: 'This session has no docs/changes plan file. Write goal, scope, non-goals, and acceptance into docs/changes, then implement against that file. Do not start from the chat transcript alone.',
+  }
+}

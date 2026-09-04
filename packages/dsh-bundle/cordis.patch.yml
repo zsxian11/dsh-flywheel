@@ -31,6 +31,8 @@
         windowCompact: true
         windowPendingPattern: '另外|换个|新需求|先不管刚才|开始实现|开始写代码'
         supersedePattern: '不对|不是|改成|作废|作废上次|取消刚才|不要按上次|口径改了|需求变了'
+        trimToolResults: true
+        maxToolResultChars: 8000
 
     - id: flywheel-lexical-sqlite
       name: '@dsh-flywheel/dsh-bundle/lexical-sqlite'
@@ -43,6 +45,9 @@
 
     - id: flywheel-window
       name: '@dsh-flywheel/dsh-bundle/window'
+
+    - id: flywheel-trim
+      name: '@dsh-flywheel/dsh-bundle/trim'
 
     - id: tool-flywheel
       name: '@dsh-flywheel/dsh-bundle/tools'

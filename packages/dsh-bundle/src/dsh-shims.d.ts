@@ -60,6 +60,13 @@ declare module '@deepseek-ai/dsh-timeout' {
 }
 
 declare module '@deepseek-ai/dsh-tools' {
+  export type PostToolDecision = {
+    kind: 'accept' | 'block' | string
+    content?: Array<{ type: string; text?: string }>
+    value?: unknown
+    additionalContexts?: unknown
+    [key: string]: unknown
+  }
   export function defineTool(spec: {
     name: string
     description: string

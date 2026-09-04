@@ -186,6 +186,11 @@ export function FlywheelCard(props: FlywheelCardProps) {
         <Field label={t('supersedePattern')} field="supersedePattern" value={state.values.supersedePattern ?? ''} overridden={state.overridden.supersedePattern ?? false} invalid={state.invalid.supersedePattern ?? false} {...shared} />
       </Group>
 
+      <Group title={t('groupTrim')}>
+        <Field label={t('trimToolResults')} field="trimToolResults" kind="boolean" value={state.values.trimToolResults ?? ''} overridden={state.overridden.trimToolResults ?? false} invalid={state.invalid.trimToolResults ?? false} {...shared} />
+        <Field label={t('maxToolResultChars')} field="maxToolResultChars" kind="number" value={state.values.maxToolResultChars ?? ''} overridden={state.overridden.maxToolResultChars ?? false} invalid={state.invalid.maxToolResultChars ?? false} {...shared} />
+      </Group>
+
       <footer className={css.cardFoot}>
         {state.failed && <p className={css.failed}>{t('backendNotMounted')}</p>}
         <div className={css.actions}>

@@ -8,15 +8,18 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { PreStepDecision } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-compaction'
 import { createUserMessage, type UserMessage } from '@deepseek-ai/dsh-llm'
+import {
+  isImplementUtterance, isPlanChangePath, PLAN_CHANGE_LOOKBACK, type GraphStore,
+} from '@dsh-flywheel/core'
 import { FLYWHEEL_SERVICE, type FlywheelService } from './service.ts'
-import { workingSetChrome, workingSetNoticeSummary } from './notices.ts'
+import { missingPlanNotice, workingSetChrome, workingSetNoticeSummary } from './notices.ts'
 import { projectId } from './project.ts'
 
 export const name = 'flywheel-inject'
 
 export const inject = ['agents', FLYWHEEL_SERVICE]
 
-export { queryUsesCjk, workingSetChrome, workingSetNoticeSummary } from './notices.ts'
+export { queryUsesCjk, workingSetChrome, workingSetNoticeSummary, missingPlanNotice } from './notices.ts'
 
 /** The most recently injected digest per session id (cleared after compaction/end). */
 const lastDigest = new Map<string, string>()
@@ -38,16 +41,29 @@ export function apply(ctx: Context): void {
     if (userText === undefined) return decision
 
     const sessionId = agent.session.id
+    const extras: UserMessage[] = []
+
+    if (isImplementUtterance(userText)) {
+      let hasPlan = false
+      try {
+        hasPlan = await hasRecentPlanChange(flywheel.graph(), sessionId)
+      } catch (error) {
+        ctx.logger?.warn?.(error)
+      }
+      if (!hasPlan) extras.push(missingPlanMessage(userText))
+    }
+
     let result
     try {
       result = await flywheel.retrieve({ projectId: projectId(), sessionId, query: userText })
     } catch (error) {
       ctx.logger?.warn?.(error)
-      return decision
+      return extras.length === 0 ? decision : { ...decision, messages: [...extras, ...decision.messages] }
     }
-    // Unchanged digest → nothing new to inject.
-    if (lastDigest.get(sessionId) === result.digest) return decision
-    if (result.text === '') return decision
+    // Unchanged digest → nothing new to inject, unless we still need the plan notice.
+    if (lastDigest.get(sessionId) === result.digest || result.text === '') {
+      return extras.length === 0 ? decision : { ...decision, messages: [...extras, ...decision.messages] }
+    }
     lastDigest.set(sessionId, result.digest)
 
     const chrome = workingSetChrome(userText)
@@ -70,7 +86,7 @@ export function apply(ctx: Context): void {
     })
 
     // Place the working set BEFORE the real user message (design §6.2 ordering).
-    return { ...decision, messages: [snapshot, ...decision.messages] }
+    return { ...decision, messages: [...extras, snapshot, ...decision.messages] }
   }, { prepend: true })
 
   // A compaction ends the request history: the next real user message re-injects.
@@ -91,4 +107,33 @@ export function directUserText(messages: readonly UserMessage[]): string | undef
     if (text.length > 0) return text
   }
   return undefined
+}
+
+/** Whether this session recently wrote a docs/changes plan file. */
+export async function hasRecentPlanChange(
+  graph: Pick<GraphStore, 'recentActiveSessionNodes' | 'nodes'> | undefined,
+  sessionId: string,
+  limit = PLAN_CHANGE_LOOKBACK,
+): Promise<boolean> {
+  if (graph === undefined) return false
+  const ids = await graph.recentActiveSessionNodes(sessionId, 'change', limit)
+  if (ids.length === 0) return false
+  const nodes = await graph.nodes(ids)
+  for (const node of nodes.values()) {
+    if (isPlanChangePath(node.path)) return true
+  }
+  return false
+}
+
+function missingPlanMessage(query: string): UserMessage {
+  const notice = missingPlanNotice(query)
+  return createUserMessage({
+    content: [{ type: 'text', text: notice.text }],
+    source: {
+      kind: 'plugin',
+      plugin: name,
+      form: 'notice',
+      summary: notice.summary,
+    },
+  })
 }

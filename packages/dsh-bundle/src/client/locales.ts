@@ -10,6 +10,7 @@ export type FlywheelLocaleKey =
   | 'vectorProvider' | 'vectorModel' | 'vectorK' | 'embedQuery' | 'embedQueryHint'
   | 'groupClaim' | 'claimFlash' | 'summarizationModel' | 'extractors' | 'mediaCaption'
   | 'groupWindow' | 'windowCompact' | 'windowPendingPattern' | 'supersedePattern'
+  | 'groupTrim' | 'trimToolResults' | 'maxToolResultChars'
   | 'backendNotMounted' | 'invalid'
   | 'save' | 'saving' | 'discard' | 'overridden' | 'reset'
 
@@ -50,6 +51,9 @@ export const en: Record<FlywheelLocaleKey, string> = {
   windowCompact: 'Compact history when idle after a topic switch',
   windowPendingPattern: 'Topic-switch regex',
   supersedePattern: 'Supersede regex',
+  groupTrim: 'In-turn tool results',
+  trimToolResults: 'Bound oversized tool results (including read)',
+  maxToolResultChars: 'Tool-result char cap',
   backendNotMounted: 'That backend is not installed and cannot be saved. Local SQLite full-text search stays in use.',
   invalid: 'This value cannot be saved.',
   save: 'Save',
@@ -96,6 +100,9 @@ export const zh: Record<FlywheelLocaleKey, string> = {
   windowCompact: '换题后在空闲时压缩历史',
   windowPendingPattern: '换题正则',
   supersedePattern: '作废正则',
+  groupTrim: '当轮工具结果',
+  trimToolResults: '截断超大工具结果（含 read）',
+  maxToolResultChars: '单条工具结果字数上限',
   backendNotMounted: '未安装该后端，无法保存。当前仍使用本地 SQLite 全文检索。',
   invalid: '该取值无法保存。',
   save: '保存',
