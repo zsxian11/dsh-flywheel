@@ -41,11 +41,12 @@ export function apply(ctx: Context, config: FlywheelSettings): void {
   ctx.provide(FLYWHEEL_SERVICE, service)
 
   ctx.inject(['systemPrompt'], (promptCtx) => {
-    // Runtime context, not a system section: Chat would otherwise put the
-    // flywheel rules inside the leading 「系统提示词」 disclosure.
-    promptCtx.systemPrompt.context({
+    // Late system section (not runtime context): DSH wraps context snapshots in
+    // an English "Current runtime context…" envelope, and tool docs / harness
+    // identity are English. Order 9900 sits after those so language rules win.
+    promptCtx.systemPrompt.section({
       name: 'flywheel:persona',
-      order: 35,
+      order: 9900,
       text: () => source().enabled === false ? '' : FLYWHEEL_PERSONA,
     })
   })

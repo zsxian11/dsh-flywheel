@@ -34,7 +34,7 @@ export const DEFAULT_CONFIG: FlywheelConfig = {
   windowPendingPattern: '另外|换个|新需求|先不管刚才|开始实现|开始写代码',
   supersedePattern: '不对|不是|改成|作废|作废上次|取消刚才|不要按上次|口径改了|需求变了',
   trimToolResults: true,
-  maxToolResultChars: 8000,
+  maxToolResultChars: 4000,
 }
 
 /** Stable, machine-readable validation error codes surfaced to the settings card. */

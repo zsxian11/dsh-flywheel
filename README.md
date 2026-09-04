@@ -25,7 +25,7 @@ packages/dsh-bundle/          # DSH 侧 bundle：Host 插件 + Web 设置卡片�
 | `flywheel-inject` | `@dsh-flywheel/dsh-bundle/inject` | `agent/pre-step` 注入工作集（step 1 + 真人句，digest 去重） |
 | `flywheel-index` | `@dsh-flywheel/dsh-bundle/index` | 文件事件 + 用途句入库 + 纠正作废 |
 | `flywheel-window` | `@dsh-flywheel/dsh-bundle/window` | idle 换窗 `compactNow` |
-| `flywheel-trim` | `@dsh-flywheel/dsh-bundle/trim` | `tools/post-execute` 截断超大工具结果（含 `read`，默认 8000 字） |
+| `flywheel-trim` | `@dsh-flywheel/dsh-bundle/trim` | `tools/post-execute` 截断超大工具结果（含 `read`，默认 4000 字） |
 | `tool-flywheel` | `@dsh-flywheel/dsh-bundle/tools` | `project_search` / `session_search` / `session_read` |
 | `flywheel-web` | `@dsh-flywheel/dsh-bundle` | 空 Host apply，让 Web 扫描到包根上的 `dsh.client` |
 | （浏览器） | `@dsh-flywheel/dsh-bundle/client` | 设置左侧「会话飞轮」栏目（中英字典） |
@@ -68,7 +68,7 @@ npx @deepseek-ai/dsh web --no-open
 
 - **设置** 左侧导航出现独立栏目「会话飞轮」（不是插件配置里的卡片，也不是 Flywheel / 包名）。
 - 首步真人消息注入 ≤ `ftsK` 张节点卡 + 1 跳 ≤ `hopExtra` 张；digest 相同不重复注入。
-- 工具结果（含 `read`）超过 `maxToolResultChars`（默认 8000）时截成首尾预览；后续步骤不再整文件回放。trim 在 spill 内侧先截断；若官方 spill 仍写出文件，会去掉 `read` 结果里的 spill 路径。
+- 工具结果（含 `read`）超过 `maxToolResultChars`（默认 4000）时截成首尾预览；后续步骤不再整文件回放。`read` 截的是官方结构化 value（卡片 meta 一并缩小）；trim 在 spill 内侧先截断；若官方 spill 仍写出文件，会去掉 `read` 结果里的 spill 路径。
 - 工具循环 / 子代理不重复检索；写出的 pptx/pdf/xlsx/… 落 `PRODUCED` 边。
 - 用户纠正（`不对|不是|改成|作废…`，大小写/中英均可）把最近 3 条 active claim/change 标 `superseded`。
 - 规则命中后，后台用 `summarizationModel`（默认 `deepseek-v4-flash`）把用途句改成 ≤80 字目的 + 绑定路径；超时 8s 或失败保留规则摘录，绝不 await 在 pre-step（§7.3 claim flash）。
@@ -79,7 +79,7 @@ npx @deepseek-ai/dsh web --no-open
 
 - `ftsK` / `hopExtra` / `vectorK` 正整数；`hop` 只能是 `1`（v1 不开放多跳）。
 - `maxChars` 500–8000。
-- `maxToolResultChars` 1000–32000；`trimToolResults` 默认开。这只截断**当轮**写入历史的工具结果，不会少一次模型 API 调用。
+- `maxToolResultChars` 1000–32000；`trimToolResults` 默认开，默认 4000。这只截断**当轮**写入历史的工具结果，不会少一次模型 API 调用。
 - `lexicalBackend` 必须已挂载；v1 只挂载 `sqlite-fts`。选 `elasticsearch` 但未装 Provider 时保存被拒绝（fail loud），sqlite 检索不受损。
 - `vectorBackend: off`（默认）时热路径零 embedding；v1 不实现 ES / 云向量，接口与卡片字段已留位（P6/P7）。
 - 密钥走 `role('secret')`，不出现在 settings 读取响应。

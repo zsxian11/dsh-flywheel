@@ -1,8 +1,9 @@
 /** Short system-prompt discipline for the flywheel (design §6.6). */
 
 /** Model-visible rules: cards are an index; match the user's language.
- * Registered as `systemPrompt.context` so Chat shows them as 上下文注入,
- * not inside the leading 系统提示词 row. */
+ * Registered as `systemPrompt.section` (order 9900, after English tool docs)
+ * so they sit last in the system prompt. Runtime-context snapshots are wrapped
+ * in English by DSH and do not constrain reply language. */
 export const FLYWHEEL_PERSONA = [
   '会话飞轮工作集只是索引卡片，不是文件原文。改代码或引用细节前，必须用 read（或等价工具）打开对应路径；不要只凭卡片摘要下结论。',
   'project_search / session_search / session_read 只检索飞轮卡片（跨会话标题与产物），不能代替对本仓库的 grep / glob / read。',

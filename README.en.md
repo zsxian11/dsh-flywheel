@@ -25,7 +25,7 @@ The full plan lives in `_docs/flywheel-plugin-plan.md` (not restated here).
 | `flywheel-inject` | `@dsh-flywheel/dsh-bundle/inject` | `agent/pre-step` working-set injection (step 1 + real user message, digest dedupe) |
 | `flywheel-index` | `@dsh-flywheel/dsh-bundle/index` | File events + purpose-sentence ingest + correction supersede |
 | `flywheel-window` | `@dsh-flywheel/dsh-bundle/window` | Idle stage-switch `compactNow` |
-| `flywheel-trim` | `@dsh-flywheel/dsh-bundle/trim` | `tools/post-execute` bounds oversized tool results (including `read`, default 8000 chars) |
+| `flywheel-trim` | `@dsh-flywheel/dsh-bundle/trim` | `tools/post-execute` bounds oversized tool results (including `read`, default 4000 chars) |
 | `tool-flywheel` | `@dsh-flywheel/dsh-bundle/tools` | `project_search` / `session_search` / `session_read` |
 | `flywheel-web` | `@dsh-flywheel/dsh-bundle` | Empty Host apply so the Web scanner sees `dsh.client` on the package root |
 | (browser) | `@dsh-flywheel/dsh-bundle/client` | Settings left-nav "Session flywheel" section (zh/en dictionaries) |
@@ -68,7 +68,7 @@ After install:
 
 - **Settings** left navigation shows a standalone "Session flywheel" section (not a Plugin configuration card, and not Flywheel / the package name).
 - The first-step real user message injects ≤ `ftsK` node cards + 1 hop ≤ `hopExtra`; an unchanged digest does not re-inject.
-- Tool results (including `read`) over `maxToolResultChars` (default 8000) become a head/tail preview, so later steps do not replay whole files. Trim runs inner of spill; if official spill still writes a file, the spill path is stripped from `read` results.
+- Tool results (including `read`) over `maxToolResultChars` (default 4000) become a head/tail preview, so later steps do not replay whole files. `read` is truncated via the official structured value (UI meta shrinks too). Trim runs inner of spill; if official spill still writes a file, the spill path is stripped from `read` results.
 - Tool loops / subagents never re-retrieve; written pptx/pdf/xlsx/… get a `PRODUCED` edge.
 - A user correction (`不对|不是|改成|作废…`, any case, Chinese/English) marks the last 3 active claim/change nodes `superseded`.
 - After a rule hit, `summarizationModel` (default `deepseek-v4-flash`) rewrites the purpose sentence in the background to a ≤80-char purpose + bound path; an 8s timeout or any failure keeps the rule excerpt, and this never awaits in pre-step (§7.3 claim flash).
@@ -79,7 +79,7 @@ Field names and defaults live in `packages/core/src/config.ts` (`DEFAULT_CONFIG`
 
 - `ftsK` / `hopExtra` / `vectorK` positive integers; `hop` must be `1` (v1 does not open multi-hop).
 - `maxChars` 500–8000.
-- `maxToolResultChars` 1000–32000; `trimToolResults` is on by default. This only bounds **in-turn** tool results written into history; it does not skip a model API call.
+- `maxToolResultChars` 1000–32000; `trimToolResults` is on by default (4000 chars). This only bounds **in-turn** tool results written into history; it does not skip a model API call.
 - `lexicalBackend` must be mounted; v1 mounts only `sqlite-fts`. Selecting `elasticsearch` without its provider rejects the save (fail loud); sqlite retrieval is unaffected.
 - `vectorBackend: off` (default) means zero embeddings on the hot path; v1 does not implement ES / cloud vector — interfaces and card fields are reserved (P6/P7).
 - Secrets use `role('secret')` and never appear in settings read responses.

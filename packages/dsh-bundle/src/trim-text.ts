@@ -40,7 +40,83 @@ export function trimPlainText(text: string, maxChars: number, toolName: string):
   return replaced.length < text.length && replaced.length <= maxChars ? replaced : undefined
 }
 
-/** Flatten accepted plain-text blocks, or `undefined` when any block is rich. */
+/** Line-numbered `read` canonical value (dsh-tool-fs). Truncating this rebuilds
+ * both model-facing `content` and UI `meta`; content-only replace leaves the
+ * full window in `value`/`meta` after recent DSH structured-output updates. */
+export interface ReadWindowValue {
+  path: string
+  offset: number
+  lines: readonly { number: number; text: string }[]
+  totalLines: number
+}
+
+/** Whether `value` is a filesystem `read` window we can bound. */
+export function isReadWindowValue(value: unknown): value is ReadWindowValue {
+  if (typeof value !== 'object' || value === null) return false
+  const record = value as Record<string, unknown>
+  if (typeof record.path !== 'string' || typeof record.offset !== 'number'
+    || typeof record.totalLines !== 'number' || !Array.isArray(record.lines)) return false
+  return record.lines.every(line => (
+    typeof line === 'object' && line !== null
+    && typeof (line as { number?: unknown }).number === 'number'
+    && typeof (line as { text?: unknown }).text === 'string'
+  ))
+}
+
+function windowBody(lines: readonly { number: number; text: string }[]): string {
+  return lines.map(line => line.text).join('\n')
+}
+
+/**
+ * Drop middle lines so the concatenated body is under `maxChars`.
+ * @returns a smaller window, or `undefined` when no trim is needed or possible.
+ */
+export function trimReadWindow(value: ReadWindowValue, maxChars: number): ReadWindowValue | undefined {
+  const body = windowBody(value.lines)
+  if (body.length <= maxChars) return undefined
+  const marker = trimNotice(body.length, 'read')
+  if (marker.length >= maxChars) return undefined
+  const budget = maxChars - marker.length - 1
+  if (budget < 1) return undefined
+  const headBudget = Math.max(1, Math.ceil(budget * 0.75))
+  const tailBudget = Math.max(0, budget - headBudget)
+  const head: { number: number; text: string }[] = []
+  let headChars = 0
+  for (const line of value.lines) {
+    const extra = head.length === 0 ? line.text.length : line.text.length + 1
+    if (headChars + extra > headBudget) break
+    head.push({ number: line.number, text: line.text })
+    headChars += extra
+  }
+  if (head.length === 0) return undefined
+  const tail: { number: number; text: string }[] = []
+  if (tailBudget > 0) {
+    let tailChars = 0
+    for (let index = value.lines.length - 1; index >= head.length; index -= 1) {
+      const line = value.lines[index]
+      if (line === undefined) break
+      const extra = tail.length === 0 ? line.text.length : line.text.length + 1
+      if (tailChars + extra > tailBudget) break
+      tail.unshift({ number: line.number, text: line.text })
+      tailChars += extra
+    }
+  }
+  const kept = new Set([...head, ...tail].map(line => line.number))
+  if (kept.size >= value.lines.length) return undefined
+  const omittedStart = (head.at(-1)?.number ?? value.offset) + 1
+  const omittedEnd = tail[0]?.number ?? value.totalLines
+  const markerLine = {
+    number: omittedStart,
+    text: `${marker} (lines ${omittedStart}–${omittedEnd}; use offset/limit)`,
+  }
+  return {
+    path: value.path,
+    offset: value.offset,
+    totalLines: value.totalLines,
+    lines: [...head, markerLine, ...tail],
+  }
+}
+
 export function flattenPlainText(content: readonly { type: string; text?: string }[]): string | undefined {
   let text = ''
   for (const block of content) {
