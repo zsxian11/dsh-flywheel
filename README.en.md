@@ -28,7 +28,7 @@ The full plan lives in `_docs/flywheel-plugin-plan.md` (not restated here).
 | `flywheel-trim` | `@dsh-flywheel/dsh-bundle/trim` | `tools/post-execute` bounds oversized tool results (including `read`, default 8000 chars) |
 | `tool-flywheel` | `@dsh-flywheel/dsh-bundle/tools` | `project_search` / `session_search` / `session_read` |
 | `flywheel-web` | `@dsh-flywheel/dsh-bundle` | Empty Host apply so the Web scanner sees `dsh.client` on the package root |
-| (browser) | `@dsh-flywheel/dsh-bundle/client` | Settings page "Session flywheel" card (zh/en dictionaries) |
+| (browser) | `@dsh-flywheel/dsh-bundle/client` | Settings left-nav "Session flywheel" section (zh/en dictionaries) |
 
 The service surface stays small: `ctx.flywheel.retrieve / ingest / queueClaimExtract / config()`.
 
@@ -66,7 +66,7 @@ Notes:
 
 After install:
 
-- **Settings → Plugin configuration** shows a card titled "Session flywheel" (not Flywheel / the package name).
+- **Settings** left navigation shows a standalone "Session flywheel" section (not a Plugin configuration card, and not Flywheel / the package name).
 - The first-step real user message injects ≤ `ftsK` node cards + 1 hop ≤ `hopExtra`; an unchanged digest does not re-inject.
 - Tool results (including `read`) over `maxToolResultChars` (default 8000) become a head/tail preview, so later steps do not replay whole files. Trim runs inner of spill; if official spill still writes a file, the spill path is stripped from `read` results.
 - Tool loops / subagents never re-retrieve; written pptx/pdf/xlsx/… get a `PRODUCED` edge.
@@ -126,5 +126,5 @@ pnpm -r build
 4. Other sessions' raw text never auto-injects; `session_search` finds their titles — `retrieve` foreign-session truncation + `tool-flywheel`.
 5. Start with `coding-search` (bash + search + `/plan` + gated web) + 12k spill; topic-switch tries step-1 `forced` then `context-overflow`, and `compactNow` stays idle-only — preset at `~/.dsh/.agent-presets/coding-search/`.
 6. Finance / HR work with zero extra extractors — `generic` is built in.
-7. The settings page shows the "Session flywheel" card; changing "injection char cap" applies next turn — `dsh-bundle` client + store.
+7. The settings left nav shows the "Session flywheel" section; changing "injection char cap" applies next turn — `dsh-bundle` client + store.
 8. Saving an unmounted ES / cloud vector fails; sqlite retrieval stays intact — store `validate`.

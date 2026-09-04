@@ -1,7 +1,7 @@
-/** Locale dictionaries for the flywheel settings card (design §6.7 zh table). */
+/** Locale dictionaries for the flywheel settings section (design §6.7 zh table). */
 
 export type FlywheelLocaleKey =
-  | 'cardTitle' | 'cardDescription'
+  | 'nav' | 'cardTitle' | 'cardDescription'
   | 'groupWorkingSet' | 'enabled' | 'inject' | 'tools'
   | 'ftsK' | 'hop' | 'hopHint' | 'hopExtra' | 'maxChars'
   | 'groupLexical' | 'lexicalBackend' | 'lexicalSqlite' | 'lexicalElasticsearch'
@@ -15,6 +15,7 @@ export type FlywheelLocaleKey =
   | 'save' | 'saving' | 'discard' | 'overridden' | 'reset'
 
 export const en: Record<FlywheelLocaleKey, string> = {
+  nav: 'Session flywheel',
   cardTitle: 'Session flywheel',
   cardDescription: 'Inject project index cards for the current sentence; choose lexical and vector backends.',
   groupWorkingSet: 'Working set',
@@ -64,6 +65,7 @@ export const en: Record<FlywheelLocaleKey, string> = {
 }
 
 export const zh: Record<FlywheelLocaleKey, string> = {
+  nav: '会话飞轮',
   cardTitle: '会话飞轮',
   cardDescription: '按当前这句话注入项目索引卡片；可选择倒排与向量后端。',
   groupWorkingSet: '工作集',

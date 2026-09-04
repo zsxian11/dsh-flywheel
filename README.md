@@ -28,7 +28,7 @@ packages/dsh-bundle/          # DSH 侧 bundle：Host 插件 + Web 设置卡片�
 | `flywheel-trim` | `@dsh-flywheel/dsh-bundle/trim` | `tools/post-execute` 截断超大工具结果（含 `read`，默认 8000 字） |
 | `tool-flywheel` | `@dsh-flywheel/dsh-bundle/tools` | `project_search` / `session_search` / `session_read` |
 | `flywheel-web` | `@dsh-flywheel/dsh-bundle` | 空 Host apply，让 Web 扫描到包根上的 `dsh.client` |
-| （浏览器） | `@dsh-flywheel/dsh-bundle/client` | 设置页「会话飞轮」卡片（中英字典） |
+| （浏览器） | `@dsh-flywheel/dsh-bundle/client` | 设置左侧「会话飞轮」栏目（中英字典） |
 
 服务面保持小：`ctx.flywheel.retrieve / ingest / queueClaimExtract / config()`。
 
@@ -66,7 +66,7 @@ npx @deepseek-ai/dsh web --no-open
 
 安装后：
 
-- **设置 → 插件配置** 出现标题为「会话飞轮」的卡片（不是 Flywheel / 包名）。
+- **设置** 左侧导航出现独立栏目「会话飞轮」（不是插件配置里的卡片，也不是 Flywheel / 包名）。
 - 首步真人消息注入 ≤ `ftsK` 张节点卡 + 1 跳 ≤ `hopExtra` 张；digest 相同不重复注入。
 - 工具结果（含 `read`）超过 `maxToolResultChars`（默认 8000）时截成首尾预览；后续步骤不再整文件回放。trim 在 spill 内侧先截断；若官方 spill 仍写出文件，会去掉 `read` 结果里的 spill 路径。
 - 工具循环 / 子代理不重复检索；写出的 pptx/pdf/xlsx/… 落 `PRODUCED` 边。
@@ -126,5 +126,5 @@ pnpm -r build
 4. 其它会话原文默认不进自动注入，`session_search` 能搜到标题 —— 见 `retrieve` 的 foreign-session 截断 + `tool-flywheel`。
 5. 开局 `coding-search`（bash + 检索 + `/plan` + 受限 web）+ 12k spill；换窗在 step 1 先 `forced` 再回退 `context-overflow`，`compactNow` 仅 idle —— preset 在 `~/.dsh/.agent-presets/coding-search/`。
 6. 财务 / 人力零额外抽取器也能靠 claim 工作 —— `generic` 抽取器内置。
-7. 设置页出现「会话飞轮」卡片、改「注入字数上限」下一轮生效 —— 见 `dsh-bundle` client + store。
+7. 设置左侧导航出现「会话飞轮」栏目、改「注入字数上限」下一轮生效 —— 见 `dsh-bundle` client + store。
 8. v1 未装 ES / 云向量时保存失败、sqlite 检索不受损 —— 见 store `validate`。

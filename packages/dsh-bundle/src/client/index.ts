@@ -1,9 +1,8 @@
-/** Browser half of the flywheel bundle: settings card plus the session-graph tab. */
+/** Browser half of the flywheel bundle: settings section plus the session-graph tab. */
 
 // Type-only: SlotMap merges and Context services. Cross-plugin collaboration
 // goes through cordis services, never a value import.
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
-import type {} from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
@@ -16,7 +15,7 @@ import { EMPTY_GRAPH_SNAPSHOT } from './graph-fold.ts'
 import { graphEn, graphZh } from './graph-locales.ts'
 import { SessionGraphView, type SessionGraphInjected } from './SessionGraphView.tsx'
 
-/** Dictionary namespace owned by the settings card. */
+/** Dictionary namespace owned by the settings section. */
 const CARD_NS = 'settings.flywheel'
 
 /** Dictionary namespace owned by the session-graph tab. */
@@ -31,18 +30,21 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 /** Cordis plugin name used by loader diagnostics. */
 export const name = 'flywheel-web'
 
-/** Required services (cordis fiber inject). Conversation is optional so the card still loads alone. */
+/** Required services (cordis fiber inject). Conversation is optional so the section still loads alone. */
 export const inject = ['slots', 'locale', 'settingsScope']
 
-/** Register the settings card; the graph tab waits for the conversation shell. */
+/** Register the settings section; the graph tab waits for the conversation shell. */
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(CARD_NS, { zh, en }), 'flywheel-card: dictionaries')
 
   const card = new FlywheelCardController(ctx.settingsScope.bind({ namespace: FLYWHEEL_NS }))
+  const tNav = ctx.locale.bind(CARD_NS)
 
-  ctx.slots.inject('settings.plugin.item', () => ctx.slots.register({
-    name: 'settings.plugin.item',
-    key: FLYWHEEL_NS,
+  ctx.slots.inject('settings.section', () => ctx.slots.register({
+    name: 'settings.section',
+    id: 'flywheel',
+    order: 16,
+    label: () => tNav('nav'),
     locale: CARD_NS,
     inject: () => card.inject(),
   }, FlywheelCard))

@@ -1,16 +1,16 @@
-/** The flywheel plugin's settings card: title 「会话飞轮」, grouped controls, all
+/** The flywheel settings page: title 「会话飞轮」, grouped controls, all
  * copy through typed locale dictionaries. Self-drawn (no import of the shipped
- * card chrome), per the out-of-repo card ownership rule. */
+ * settings chrome), per the out-of-repo page ownership rule. */
 
 import type { ReactNode } from 'react'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type {} from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
+import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { FlywheelCardFace } from './flywheel-card-controller.ts'
 import css from './FlywheelCard.module.css'
 
-/** Props the renderer binds for the flywheel card. */
+/** Props the renderer binds for the flywheel settings section. */
 export type FlywheelCardProps =
-  PropsRuntime<'settings.plugin.item'>
+  PropsRuntime<'settings.section'>
   & PropsLocale<'settings.flywheel'>
   & InjectFace<FlywheelCardFace>
 
