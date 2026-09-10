@@ -53,6 +53,27 @@ describe('factFromEvent', () => {
     ])
   })
 
+  it('reads cards from a V3 snapshot section when content has no list lines', () => {
+    expect(factFromEvent({
+      type: 'user/message',
+      data: {
+        source: {
+          kind: 'plugin',
+          plugin: 'flywheel-inject',
+          form: 'snapshot',
+          sections: [{
+            name: 'flywheel-inject',
+            text: '- [artifact] ACL (docs/acl.md) — plan',
+          }],
+        },
+        content: [{ type: 'text', text: '## 会话飞轮工作集' }],
+      },
+    })).toEqual({
+      kind: 'working-set',
+      cards: [{ id: 'docs/acl.md', type: 'artifact', title: 'ACL', path: 'docs/acl.md', summary: 'plan' }],
+    })
+  })
+
   it('ignores a real user message', () => {
     expect(factFromEvent({
       type: 'user/message',

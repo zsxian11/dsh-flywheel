@@ -13,7 +13,9 @@ import { transform } from 'lightningcss'
 
 const ID = '@dsh-flywheel/dsh-bundle'
 
-/** Specifiers the Web shell shares into the frozen module table. */
+/** Specifiers the Web shell shares into the frozen module table.
+ * Must match DSH `PLATFORM_MODULES` — a require() the table cannot answer
+ * fails the whole client composition (including new-session create). */
 const EXTERNALS = new Set([
   'react',
   'react/jsx-runtime',
@@ -23,11 +25,11 @@ const EXTERNALS = new Set([
   '@deepseek-ai/dsh-client-store',
   '@deepseek-ai/dsh-client-ui-slots',
   '@deepseek-ai/dsh-client-ui-primitives',
-  '@deepseek-ai/dsh-client-ui-conversation',
-  '@deepseek-ai/dsh-client-ui-conversation/client',
-  '@deepseek-ai/dsh-session',
-  '@deepseek-ai/dsh-session/types',
+  '@deepseek-ai/dsh-client-ui-dockkit',
 ])
+
+/** Browser-safe wire layers DSH inlines; session types are not a module-table row. */
+const INLINE_SAFE = /^(?:@deepseek-ai\/dsh-session(?:\/|$))/
 
 const CSS_VIRTUAL_PREFIX = '\0dsh-css:'
 const CSS_VIRTUAL_SUFFIX = '.mjs'
@@ -80,6 +82,7 @@ const config: UserConfig = {
     resolveId(source: string) {
       if (!source.startsWith('@deepseek-ai/')) return null
       if (EXTERNALS.has(source)) return null
+      if (INLINE_SAFE.test(source)) return null
       throw new Error(
         `client bundle purity: "${source}" is not a platform module-table row — `
         + 'cross-plugin value imports are forbidden; collaborate through cordis services '

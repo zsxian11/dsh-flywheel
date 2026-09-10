@@ -12,7 +12,7 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import type { PreStepDecision } from '@deepseek-ai/dsh-agent'
-import { createUserMessage, type UserMessage } from '@deepseek-ai/dsh-llm'
+import { boundContextSummary, createUserMessage, type UserMessage } from '@deepseek-ai/dsh-llm'
 import { isWindowSwitchUtterance } from '@dsh-flywheel/core'
 import { FLYWHEEL_SERVICE, type FlywheelService } from './service.ts'
 import { directUserText } from './inject.ts'
@@ -64,6 +64,7 @@ export interface CompactableAgent {
   ctx: Context
   session: {
     id?: string
+    seq?: number
     append(type: string, data: unknown, opts?: { surfaceOp: 'append' }): unknown
   }
 }
@@ -82,7 +83,7 @@ export function appendWindowCompactNotice(
   const notice = windowCompactNotice(query)
   session.append('user/message', createUserMessage({
     content: [{ type: 'text', text: notice.text }],
-    source: { kind: 'plugin', plugin: name, form: 'notice', summary: notice.summary },
+    source: { kind: 'plugin', plugin: name, form: 'notice', summary: boundContextSummary(notice.summary) },
   }), { surfaceOp: 'append' })
 }
 
@@ -104,11 +105,23 @@ export function compactionOf(ctx: Context, agent: CompactableAgent): CompactEngi
   return presets?.serviceFor(agent, 'compaction')
 }
 
+interface WindowState {
+  pending: boolean
+  pendingQuery: string
+  compactedAtTurnStart: boolean
+}
+
+function windowStateOf(states: Map<string, WindowState>, sessionId: string): WindowState {
+  const current = states.get(sessionId)
+  if (current !== undefined) return current
+  const created: WindowState = { pending: false, pendingQuery: '', compactedAtTurnStart: false }
+  states.set(sessionId, created)
+  return created
+}
+
 export function apply(ctx: Context): void {
   const flywheel: FlywheelService = ctx.flywheel
-  let pending = false
-  let pendingQuery = ''
-  let compactedAtTurnStart = false
+  const states = new Map<string, WindowState>()
 
   // Step 1 claimed user text is visible here; session `user/message` is not
   // appended until after pre-step, so turn-start compact must happen now.
@@ -116,72 +129,95 @@ export function apply(ctx: Context): void {
     { agent, step, signal, messages },
     next,
   ): Promise<PreStepDecision> => {
-    const config = flywheel.config()
-    if (config.windowCompact && step === 1) {
-      const text = claimedUserText(messages)
-      if (text !== undefined && isWindowSwitchUtterance(text, config.windowPendingPattern)) {
-        const compaction = compactionOf(ctx, agent)
-        if (compaction !== undefined) {
-          const result = await compactAtTurnStart(compaction, agent, signal)
-          if (result != null) {
-            compactedAtTurnStart = true
-            pending = false
-            pendingQuery = ''
-            appendWindowCompactNotice(agent.session, text)
+    try {
+      const config = flywheel.config()
+      if (config.windowCompact && step === 1 && sessionHasHistory(agent)) {
+        const text = claimedUserText(messages)
+        if (text !== undefined && isWindowSwitchUtterance(text, config.windowPendingPattern)) {
+          const state = windowStateOf(states, agent.session.id ?? '')
+          const compaction = compactionOf(ctx, agent)
+          if (compaction !== undefined) {
+            const result = await compactAtTurnStart(compaction, agent, signal)
+            if (result != null) {
+              state.compactedAtTurnStart = true
+              state.pending = false
+              state.pendingQuery = ''
+              appendWindowCompactNotice(agent.session, text)
+            } else {
+              state.pending = true
+              state.pendingQuery = text
+            }
           } else {
-            pending = true
-            pendingQuery = text
+            state.pending = true
+            state.pendingQuery = text
           }
-        } else {
-          pending = true
-          pendingQuery = text
         }
       }
+    } catch (error) {
+      // Compact/notice must never veto the turn — a new session's first
+      // "开始实现" used to fail the whole pre-step waterfall.
+      ctx.logger?.warn?.(error)
     }
     return next()
   }, { prepend: true })
 
   // Observe the direct user sentence for a window switch when step-1 compact
   // did not run (no engine, or in-turn compactIfNeeded returned nothing).
-  ctx.on('session/event', (_session, event) => {
-    if (event.type !== 'user/message') return
-    if (compactedAtTurnStart) return
-    const data = event.data as { content?: unknown; source?: { kind?: string } }
-    if (data.source?.kind !== 'user') return
-    const text = textOf(data.content)
-    if (text === undefined || text === '') return
-    const config = flywheel.config()
-    if (config.windowCompact && isWindowSwitchUtterance(text, config.windowPendingPattern)) {
-      pending = true
-      pendingQuery = text
+  ctx.on('session/event', (session, event) => {
+    try {
+      if (event.type !== 'user/message') return
+      const state = windowStateOf(states, session.id)
+      if (state.compactedAtTurnStart) return
+      const data = event.data as { content?: unknown; source?: { kind?: string } }
+      if (data.source?.kind !== 'user') return
+      const text = textOf(data.content)
+      if (text === undefined || text === '') return
+      const config = flywheel.config()
+      if (config.windowCompact && isWindowSwitchUtterance(text, config.windowPendingPattern)) {
+        state.pending = true
+        state.pendingQuery = text
+      }
+    } catch (error) {
+      ctx.logger?.warn?.(error)
     }
   })
 
   ctx.on('agent/turn-stopping', async ({ agent, signal }) => {
-    const config = flywheel.config()
-    if (compactedAtTurnStart) {
-      compactedAtTurnStart = false
-      return
-    }
-    if (!pending || !config.windowCompact) return
-    // /compact is idle-only by contract; turn-stopping is the idle boundary.
-    const compaction = compactionOf(ctx, agent)
-    if (compaction === undefined) {
-      pending = false
-      pendingQuery = ''
-      return
-    }
     try {
-      const result = await compaction.compactNow(agent, signal)
-      pending = false
-      const query = pendingQuery
-      pendingQuery = ''
-      if (result != null) appendWindowCompactNotice(agent.session, query)
+      const config = flywheel.config()
+      const state = windowStateOf(states, agent.session.id ?? '')
+      if (state.compactedAtTurnStart) {
+        state.compactedAtTurnStart = false
+        return
+      }
+      if (!state.pending || !config.windowCompact) return
+      // /compact is idle-only by contract; turn-stopping is the idle boundary.
+      const compaction = compactionOf(ctx, agent)
+      if (compaction === undefined) {
+        state.pending = false
+        state.pendingQuery = ''
+        return
+      }
+      try {
+        const result = await compaction.compactNow(agent, signal)
+        state.pending = false
+        const query = state.pendingQuery
+        state.pendingQuery = ''
+        if (result != null) appendWindowCompactNotice(agent.session, query)
+      } catch (error) {
+        // Busy: keep pending so the next idle boundary retries.
+        ctx.logger?.debug?.(error)
+      }
     } catch (error) {
-      // Busy: keep pending so the next idle boundary retries.
-      ctx.logger?.debug?.(error)
+      ctx.logger?.warn?.(error)
     }
   })
+}
+
+/** Fresh sessions have nothing to compact; first-turn "开始实现" is not a topic switch. */
+function sessionHasHistory(agent: CompactableAgent): boolean {
+  const seq = agent.session.seq
+  return typeof seq === 'number' && seq >= 2
 }
 
 function claimedUserText(messages: unknown): string | undefined {

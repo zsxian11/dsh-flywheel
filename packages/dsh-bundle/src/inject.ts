@@ -2,17 +2,18 @@
  * Mirrors time-context (prepend waterfall, `next()` first, `createUserMessage`
  * with a plugin source) — but injects ONLY on step 1 with a direct user
  * message, and skips when the retrieval digest is unchanged.
- * The source is Chat `notice` so the collapsed row shows a card-count summary. */
+ * Working-set uses Chat `snapshot` (named sections). One-line nudges use
+ * `notice` with only `summary` — V3 refuses undeclared source fields. */
 
 import type { Context } from '@deepseek-ai/cordis'
 import type { PreStepDecision } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-compaction'
-import { createUserMessage, type UserMessage } from '@deepseek-ai/dsh-llm'
+import { boundContextSummary, createUserMessage, type UserMessage } from '@deepseek-ai/dsh-llm'
 import {
   isImplementUtterance, isPlanChangePath, PLAN_CHANGE_LOOKBACK, type GraphStore,
 } from '@dsh-flywheel/core'
 import { FLYWHEEL_SERVICE, type FlywheelService } from './service.ts'
-import { missingPlanNotice, workingSetChrome, workingSetNoticeSummary } from './notices.ts'
+import { missingPlanNotice, workingSetChrome } from './notices.ts'
 import { projectId } from './project.ts'
 
 export const name = 'flywheel-inject'
@@ -33,60 +34,58 @@ export function apply(ctx: Context): void {
   ): Promise<PreStepDecision> => {
     const decision = await next()
     if (decision.kind === 'reject' || signal.aborted) return decision
-    const config = flywheel.config()
-    if (!config.enabled || !config.inject) return decision
-    // Only the first step of a turn, and only a direct human message.
-    if (step !== 1) return decision
-    const userText = directUserText(decision.messages)
-    if (userText === undefined) return decision
+    try {
+      const config = flywheel.config()
+      if (!config.enabled || !config.inject) return decision
+      // Only the first step of a turn, and only a direct human message.
+      if (step !== 1) return decision
+      const userText = directUserText(decision.messages)
+      if (userText === undefined) return decision
 
-    const sessionId = agent.session.id
-    const extras: UserMessage[] = []
+      const sessionId = agent.session.id
+      const extras: UserMessage[] = []
 
-    if (isImplementUtterance(userText)) {
-      let hasPlan = false
+      if (isImplementUtterance(userText)) {
+        let hasPlan = false
+        try {
+          hasPlan = await hasRecentPlanChange(flywheel.graph(), sessionId)
+        } catch (error) {
+          ctx.logger?.warn?.(error)
+        }
+        if (!hasPlan) extras.push(missingPlanMessage(userText))
+      }
+
+      let result
       try {
-        hasPlan = await hasRecentPlanChange(flywheel.graph(), sessionId)
+        result = await flywheel.retrieve({ projectId: projectId(), sessionId, query: userText })
       } catch (error) {
         ctx.logger?.warn?.(error)
+        return extras.length === 0 ? decision : { ...decision, messages: [...extras, ...decision.messages] }
       }
-      if (!hasPlan) extras.push(missingPlanMessage(userText))
-    }
+      // Unchanged digest → nothing new to inject, unless we still need the plan notice.
+      if (lastDigest.get(sessionId) === result.digest || result.text === '') {
+        return extras.length === 0 ? decision : { ...decision, messages: [...extras, ...decision.messages] }
+      }
+      lastDigest.set(sessionId, result.digest)
 
-    let result
-    try {
-      result = await flywheel.retrieve({ projectId: projectId(), sessionId, query: userText })
+      const chrome = workingSetChrome(userText)
+      const snapshotText = `${chrome.title}\n${chrome.disclaimer}\n${result.text}`
+      const snapshot = createUserMessage({
+        content: [{ type: 'text', text: snapshotText }],
+        source: {
+          kind: 'plugin',
+          plugin: name,
+          form: 'snapshot',
+          sections: [{ name, text: snapshotText }],
+        },
+      })
+
+      // Place the working set BEFORE the real user message (design §6.2 ordering).
+      return { ...decision, messages: [...extras, snapshot, ...decision.messages] }
     } catch (error) {
       ctx.logger?.warn?.(error)
-      return extras.length === 0 ? decision : { ...decision, messages: [...extras, ...decision.messages] }
+      return decision
     }
-    // Unchanged digest → nothing new to inject, unless we still need the plan notice.
-    if (lastDigest.get(sessionId) === result.digest || result.text === '') {
-      return extras.length === 0 ? decision : { ...decision, messages: [...extras, ...decision.messages] }
-    }
-    lastDigest.set(sessionId, result.digest)
-
-    const chrome = workingSetChrome(userText)
-    const snapshotText = `${chrome.title}\n${chrome.disclaimer}\n${result.text}`
-    const snapshot = createUserMessage({
-      content: [{ type: 'text', text: snapshotText }],
-      source: {
-        kind: 'plugin',
-        plugin: name,
-        form: 'notice',
-        summary: workingSetNoticeSummary(userText, result.cards.length),
-        cards: result.cards.map(card => ({
-          id: card.id,
-          type: card.type,
-          title: card.title,
-          summary: card.summary,
-          ...card.path === undefined ? {} : { path: card.path },
-        })),
-      },
-    })
-
-    // Place the working set BEFORE the real user message (design §6.2 ordering).
-    return { ...decision, messages: [...extras, snapshot, ...decision.messages] }
   }, { prepend: true })
 
   // A compaction ends the request history: the next real user message re-injects.
@@ -133,7 +132,7 @@ function missingPlanMessage(query: string): UserMessage {
       kind: 'plugin',
       plugin: name,
       form: 'notice',
-      summary: notice.summary,
+      summary: boundContextSummary(notice.summary),
     },
   })
 }

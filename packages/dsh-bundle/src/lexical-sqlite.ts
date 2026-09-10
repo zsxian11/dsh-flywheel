@@ -17,9 +17,15 @@ export const inject = [FLYWHEEL_SERVICE]
  */
 export async function apply(ctx: Context): Promise<void> {
   const flywheel = ctx.flywheel
-  const store = await openSqliteFlywheelStore(join(projectRoot(), flywheel.config().dbRelativePath))
-  const dispose = registerSqliteFlywheel(flywheel, store)
-  ctx.effect(() => () => {
-    dispose()
-  }, 'flywheel-lexical-sqlite: store lifecycle')
+  try {
+    const store = await openSqliteFlywheelStore(join(projectRoot(), flywheel.config().dbRelativePath))
+    const dispose = registerSqliteFlywheel(flywheel, store)
+    ctx.effect(() => () => {
+      dispose()
+    }, 'flywheel-lexical-sqlite: store lifecycle')
+  } catch (error: unknown) {
+    // Opening the db must not fail the profile layer — that used to take down
+    // session create for the whole Web host.
+    ctx.logger?.warn?.(error)
+  }
 }

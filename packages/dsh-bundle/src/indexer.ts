@@ -28,15 +28,20 @@ export function apply(ctx: Context): void {
   const flywheel: FlywheelService = ctx.flywheel
 
   ctx.on('agent/session-start', ({ agent }) => {
-    const config = flywheel.config()
-    if (!config.enabled) return
-    const id = projectId()
-    const session = agent.session
-    const now = Date.now()
-    background(ctx, Promise.all([
-      upsertProjectNode(flywheel, id, now),
-      upsertSessionNode(flywheel, id, session, now),
-    ]))
+    try {
+      const config = flywheel.config()
+      if (!config.enabled) return
+      const id = projectId()
+      const session = agent.session
+      const now = Date.now()
+      background(ctx, Promise.all([
+        upsertProjectNode(flywheel, id, now),
+        upsertSessionNode(flywheel, id, session, now),
+      ]))
+    } catch (error) {
+      // Indexing must never veto agent publication (new session create).
+      ctx.logger?.warn?.(error)
+    }
   })
 
   // File-producing tool results → artifact + PRODUCED edge (design §6.3).

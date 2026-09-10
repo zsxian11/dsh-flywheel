@@ -4,6 +4,7 @@
 // goes through cordis services, never a value import.
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -14,6 +15,19 @@ import { registerGraphConversation, GRAPH_TARGET } from './graph-definition.ts'
 import { EMPTY_GRAPH_SNAPSHOT } from './graph-fold.ts'
 import { graphEn, graphZh } from './graph-locales.ts'
 import { SessionGraphView, type SessionGraphInjected } from './SessionGraphView.tsx'
+
+/** Graph tab with no Session binding yet — never throw into the conversation shell. */
+function emptyGraphInjected(): SessionGraphInjected {
+  return {
+    hooks: {
+      graph: {
+        getSnapshot: () => EMPTY_GRAPH_SNAPSHOT,
+        subscribe: () => () => {},
+      },
+    },
+    loadOlder: async () => false,
+  }
+}
 
 /** Dictionary namespace owned by the settings section. */
 const CARD_NS = 'settings.flywheel'
@@ -60,21 +74,26 @@ export function apply(ctx: ClientContext): void {
       locale: GRAPH_NS,
       label: () => t('viewLabel'),
       inject: (sessionId: SessionId): SessionGraphInjected => {
-        const session = inner.sessions.binding(sessionId)?.session
-        const target = inner.uiConversation.binding(sessionId).target(GRAPH_TARGET)
-        return {
-          hooks: {
-            graph: {
-              getSnapshot: () => target.getSnapshot() ?? EMPTY_GRAPH_SNAPSHOT,
-              subscribe: listener => target.subscribe(listener),
+        try {
+          const binding = inner.sessions.binding(sessionId)
+          if (binding === undefined) return emptyGraphInjected()
+          const target = inner.uiConversation.binding(binding).target(GRAPH_TARGET)
+          return {
+            hooks: {
+              graph: {
+                getSnapshot: () => target.getSnapshot() ?? EMPTY_GRAPH_SNAPSHOT,
+                subscribe: listener => target.subscribe(listener),
+              },
             },
-          },
-          loadOlder: async () => {
-            if (session === undefined) return false
-            const before = target.getSnapshot()
-            await session.loadOlder()
-            return target.getSnapshot() !== before
-          },
+            loadOlder: async () => {
+              const before = target.getSnapshot()
+              await binding.session.loadOlder()
+              return target.getSnapshot() !== before
+            },
+          }
+        } catch (error) {
+          inner.logger?.warn?.(error)
+          return emptyGraphInjected()
         }
       },
     }, SessionGraphView))

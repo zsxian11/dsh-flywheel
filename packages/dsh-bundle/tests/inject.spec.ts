@@ -46,6 +46,7 @@ describe('windowCompactNotice', () => {
 describe('missingPlanNotice', () => {
   it('asks in Chinese to write docs/changes before implementing', () => {
     const notice = missingPlanNotice('开始实现刚才讨论的')
+    expect(notice.summary.length).toBeLessThanOrEqual(120)
     expect(notice.summary).toContain('方案文件')
     expect(notice.text).toContain('docs/changes')
   })

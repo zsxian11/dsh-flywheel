@@ -105,5 +105,7 @@ describe('appendWindowCompactNotice', () => {
         summary: '会话飞轮 · 换题后压缩历史',
       },
     })
+    expect(data.source).not.toHaveProperty('cards')
+    expect(data.source).not.toHaveProperty('sections')
   })
 })

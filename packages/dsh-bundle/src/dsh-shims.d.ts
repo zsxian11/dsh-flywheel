@@ -49,6 +49,7 @@ declare module '@deepseek-ai/dsh-llm' {
     stream(options: GenerateOptions): AsyncIterable<unknown>
   }
   export function createUserMessage(input: unknown): UserMessage
+  export function boundContextSummary(summary: string): string
 }
 
 declare module '@deepseek-ai/dsh-timeout' {

@@ -57,8 +57,7 @@ export const graphFactDefinition: ConversationNodeDefinition<GraphFactState> = {
   },
   start(_context, match) {
     const fact = factFromEvent(match.event)
-    if (fact === null) throw new Error('flywheel-graph start requires a graph fact')
-    return { fact }
+    return { fact: fact ?? { kind: 'working-set', cards: [] } }
   },
   update: context => context.state,
   buildViewNode(context): GraphViewNode | null {
@@ -78,14 +77,20 @@ class GraphSnapshotBuilder {
   private readonly facts = new Map<string, GraphFact>()
   private order: string[] = []
 
-  replace(input: { readonly nodes: readonly ConversationViewNode[] }): GraphSnapshot {
+  replace(input: {
+    readonly nodes: readonly ConversationViewNode[]
+    readonly timeline?: unknown
+  }): GraphSnapshot {
     this.facts.clear()
     this.order = []
     for (const node of input.nodes) this.upsert(node)
     return this.snapshot()
   }
 
-  apply(input: { readonly upserts: readonly ConversationViewNode[] }): GraphSnapshot {
+  apply(input: {
+    readonly upserts: readonly ConversationViewNode[]
+    readonly timeline?: unknown
+  }): GraphSnapshot {
     for (const node of input.upserts) this.upsert(node)
     return this.snapshot()
   }

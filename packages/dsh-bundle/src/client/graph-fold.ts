@@ -85,14 +85,24 @@ function workingSetFact(data: unknown): GraphFact | null {
   if (typeof data !== 'object' || data === null) return null
   const source = (data as { source?: unknown }).source
   if (typeof source !== 'object' || source === null) return null
-  const record = source as { kind?: unknown; plugin?: unknown; cards?: unknown }
+  const record = source as { kind?: unknown; plugin?: unknown; cards?: unknown; form?: unknown; sections?: unknown }
   if (record.kind !== 'plugin' || record.plugin !== FLYWHEEL_INJECT_PLUGIN) return null
   if (Array.isArray(record.cards)) {
     const cards = record.cards.flatMap(cardFromUnknown)
     return { kind: 'working-set', cards }
   }
   const content = (data as { content?: unknown }).content
-  return { kind: 'working-set', cards: parseCardsFromContent(content) }
+  const fromContent = parseCardsFromContent(content)
+  if (fromContent.length > 0) return { kind: 'working-set', cards: fromContent }
+  if (record.form === 'snapshot' && Array.isArray(record.sections)) {
+    const texts = record.sections.flatMap((section) => {
+      if (typeof section !== 'object' || section === null) return []
+      const text = (section as { text?: unknown }).text
+      return typeof text === 'string' ? [{ type: 'text' as const, text }] : []
+    })
+    return { kind: 'working-set', cards: parseCardsFromContent(texts) }
+  }
+  return { kind: 'working-set', cards: [] }
 }
 
 function fileFact(data: unknown): GraphFact | null {
