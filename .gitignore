@@ -5,3 +5,5 @@ dist/
 .dsh/
 coverage/
 .DS_Store
+.idea/
+.pnpm-store/
