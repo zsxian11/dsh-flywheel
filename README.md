@@ -50,16 +50,21 @@ pnpm --filter @dsh-flywheel/dsh-bundle bundle   # 浏览器：lib/client.js
 npx @deepseek-ai/dsh plugin --profile web add \
   link:./packages/core link:./packages/lexical-sqlite link:./packages/dsh-bundle
 
-# 3) 验证 layer 挂载（可先 --dump-config 看 flywheel 层）
+# 3) 把 Host peer 链进本仓（Node ESM 会 realpath `link:` 包，走不到
+#    $DSH_HOME/profiles/node_modules 的共享 fallback）。先成功跑过一次 dsh
+#    以生成 fallback；pnpm install 也会自动执行。
+pnpm link-dsh-peers
+
+# 4) 验证 layer 挂载（可先 --dump-config 看 flywheel 层）
 npx @deepseek-ai/dsh --profile web --dump-config
 
-# 4) 重启实例使新增 bundle 层生效
+# 5) 重启实例使新增 bundle 层生效
 npx @deepseek-ai/dsh web --no-open
 ```
 
 说明：
 
-- 运行时 `@deepseek-ai/*` 从 dsh 安装目录的共享 module fallback 解析（无需 registry）。
+- 运行时 `@deepseek-ai/*` 从 dsh 安装目录的共享 module fallback 解析（无需 registry）。`link:` 安装必须再跑 `pnpm link-dsh-peers`，否则 `dsh-llm` / `dsh-tools` 等会 `ERR_MODULE_NOT_FOUND`。从 npm 装进 profile 则不需要这一步。Windows 上该脚本用 junction（与 DSH 自身 fallback 相同），不需要管理员或开发人员模式。
 - 卸载：`npx @deepseek-ai/dsh plugin --profile web remove @dsh-flywheel/dsh-bundle`（再 remove 另外两个包）。
 - 设置卡片需要 `lib/client.js`（`pnpm --filter @dsh-flywheel/dsh-bundle bundle`）以及 patch 里的包根行 `flywheel-web`。首次 bundle 前在本仓执行一次 `pnpm install` 以安装 `tsdown` / `lightningcss`。
 - 发布到 npm 后可用 `dsh plugin --profile web add dsh-flywheel-dsh-bundle` 一步安装；届时把三个包的 `link:` 依赖改回版本号即可。

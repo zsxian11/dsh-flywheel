@@ -50,16 +50,21 @@ pnpm --filter @dsh-flywheel/dsh-bundle bundle   # browser: lib/client.js
 npx @deepseek-ai/dsh plugin --profile web add \
   link:./packages/core link:./packages/lexical-sqlite link:./packages/dsh-bundle
 
-# 3) Verify the layer mounted (optional: --dump-config to see the flywheel layer)
+# 3) Mirror host peers into this repo (Node ESM realpaths `link:` packages, so
+#    they cannot walk $DSH_HOME/profiles/node_modules). Launch dsh once first so
+#    the shared fallback exists; `pnpm install` also runs this.
+pnpm link-dsh-peers
+
+# 4) Verify the layer mounted (optional: --dump-config to see the flywheel layer)
 npx @deepseek-ai/dsh --profile web --dump-config
 
-# 4) Restart the instance so the new bundle layer takes effect
+# 5) Restart the instance so the new bundle layer takes effect
 npx @deepseek-ai/dsh web --no-open
 ```
 
 Notes:
 
-- At runtime `@deepseek-ai/*` resolves from the dsh installation's shared module fallback (no registry needed).
+- At runtime `@deepseek-ai/*` resolves from the dsh installation's shared module fallback (no registry needed). A `link:` install also needs `pnpm link-dsh-peers`, otherwise `dsh-llm` / `dsh-tools` fail with `ERR_MODULE_NOT_FOUND`. An npm install into the profile does not need this step. On Windows the script creates junctions (same type DSH uses for its fallback), so Administrator / Developer Mode is not required.
 - Uninstall: `npx @deepseek-ai/dsh plugin --profile web remove @dsh-flywheel/dsh-bundle` (then remove the other two packages).
 - The settings card needs `lib/client.js` (`pnpm --filter @dsh-flywheel/dsh-bundle bundle`) and the package-root `flywheel-web` patch row. Run `pnpm install` once in this repo before the first bundle so `tsdown` / `lightningcss` are present.
 - Once published to npm you can install with one command, `dsh plugin --profile web add dsh-flywheel-dsh-bundle`; revert the three packages' `link:` deps to version ranges at that point.

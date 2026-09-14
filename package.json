@@ -12,7 +12,9 @@
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "test:unit": "pnpm -r test:unit",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "link-dsh-peers": "node scripts/link-dsh-host-peers.mjs",
+    "postinstall": "node scripts/link-dsh-host-peers.mjs"
   },
   "license": "MIT"
 }
