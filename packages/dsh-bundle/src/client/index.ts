@@ -45,13 +45,13 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 export const name = 'flywheel-web'
 
 /** Required services (cordis fiber inject). Conversation is optional so the section still loads alone. */
-export const inject = ['slots', 'locale', 'settingsScope']
+export const inject = ['slots', 'locale', 'configForms']
 
 /** Register the settings section; the graph tab waits for the conversation shell. */
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(CARD_NS, { zh, en }), 'flywheel-card: dictionaries')
 
-  const card = new FlywheelCardController(ctx.settingsScope.bind({ namespace: FLYWHEEL_NS }))
+  const card = new FlywheelCardController(ctx.configForms.get(FLYWHEEL_NS))
   const tNav = ctx.locale.bind(CARD_NS)
 
   ctx.slots.inject('settings.section', () => ctx.slots.register({

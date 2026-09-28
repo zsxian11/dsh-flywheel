@@ -4,12 +4,12 @@
  * without importing it — an out-of-repo card renders its own internals.
  *
  * Nested settings (`elasticsearch.node`, `vector.embedQuery`) are addressed
- * with a path; `scope.set`/`unset` only take a top-level key, so writes go
- * through `scope.mutate`.
+ * with a path; `form.set`/`unset` only take a top-level key, so writes go
+ * through `form.mutate`.
  */
 
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { SettingsScope, SettingsScopeSnapshot } from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { ConfigForm, ConfigFormSnapshot } from '@deepseek-ai/dsh-client-ui-settings/client'
 
 /** The write one field's staged text performs when the card is saved. */
 export type FieldWrite =
@@ -203,12 +203,12 @@ export class FlywheelCardForm {
   private failed = false
 
   /**
-   * @param scope - the bound settings scope for this card's namespace.
+   * @param scope - the settings form for this card's host entry.
    * @param specs - the section fields this card edits.
    * @param secrets - write-only controls whose values never round-trip.
    */
   constructor(
-    private readonly scope: SettingsScope<Record<string, unknown>>,
+    private readonly scope: ConfigForm<Record<string, unknown>>,
     specs: CardFieldSpec[],
     secrets: CardSecretSpec[] = [],
   ) {
@@ -334,8 +334,8 @@ export class FlywheelCardForm {
 
   private async clear(path: readonly string[]): Promise<boolean> {
     try {
-      await this.scope.mutate([{ op: 'unset', path: [...path] }])
-      return !this.stored(path)
+      const accepted = await this.scope.mutate([{ op: 'unset', path: [...path] }])
+      return accepted && !this.stored(path)
     } catch {
       // Host validation refused the clear; keep the draft.
       return false
@@ -344,8 +344,8 @@ export class FlywheelCardForm {
 
   private async store(path: readonly string[], value: unknown): Promise<boolean> {
     try {
-      await this.scope.mutate([{ op: 'set', path: [...path], value: value as never }])
-      return this.stored(path) && getAt(this.userLayer(), path) === value
+      const accepted = await this.scope.mutate([{ op: 'set', path: [...path], value: value as never }])
+      return accepted && this.stored(path) && getAt(this.userLayer(), path) === value
     } catch {
       // Host validation (or a missing backend) refused the write; keep the draft.
       return false
@@ -354,8 +354,7 @@ export class FlywheelCardForm {
 
   private async storeSecret(path: readonly string[], value: string): Promise<boolean> {
     try {
-      await this.scope.mutate([{ op: 'set', path: [...path], value }])
-      return true
+      return await this.scope.mutate([{ op: 'set', path: [...path], value }])
     } catch {
       // Host validation (or a missing backend) refused the write; keep the draft.
       return false
@@ -374,7 +373,7 @@ export class FlywheelCardForm {
     return spec
   }
 
-  private snapshotOf(): SettingsScopeSnapshot<Record<string, unknown>> {
+  private snapshotOf(): ConfigFormSnapshot<Record<string, unknown>> {
     return this.scope.getSnapshot()
   }
 

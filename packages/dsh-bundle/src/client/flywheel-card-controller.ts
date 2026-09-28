@@ -3,14 +3,14 @@
  * schema paths; the card ids stay flat for the renderer. */
 
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
 import {
   booleanField, enumField, FlywheelCardForm, numberField, textField,
   type CardActions, type CardShell,
 } from './card-form.ts'
 
-/** Namespace spelled here, matching the Host store plugin. */
-export const FLYWHEEL_NS = 'flywheel'
+/** Host entry id (`cordis.patch.yml` `id: flywheel-store`). Settings forms are keyed by it. */
+export const FLYWHEEL_NS = 'flywheel-store'
 
 /** State the flywheel card renders. */
 export interface FlywheelCardState extends CardShell {
@@ -61,7 +61,7 @@ export class FlywheelCardController {
   private readonly form: FlywheelCardForm
   private readonly store: SnapshotStore<FlywheelCardState>
 
-  constructor(scope: SettingsScope<Record<string, unknown>>) {
+  constructor(scope: ConfigForm<Record<string, unknown>>) {
     this.form = new FlywheelCardForm(scope, SPECS, SECRETS)
     this.store = this.form.bind(() => this.projection())
   }
