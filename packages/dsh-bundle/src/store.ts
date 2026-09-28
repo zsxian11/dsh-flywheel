@@ -1,15 +1,15 @@
-/** `flywheel-store`: registers the `flywheel` settings namespace, provides the
- * `ctx.flywheel` service, and hot-swaps providers on settings change. No sqlite
- * import here — the lexical/vector providers mount themselves (design §6.1). */
+/** `flywheel-store`: provides `ctx.flywheel` and keeps its config live through the
+ * volatile settings form keyed by entry id `flywheel-store`. No sqlite import
+ * here — the lexical/vector providers mount themselves (design §6.1). */
 
-import type { Context } from '@deepseek-ai/cordis'
+import { FiberState, type Context, type Fiber } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-settings'
 import { validateFlywheelConfig } from '@dsh-flywheel/core'
 import { Config, resolveConfig, type Config as FlywheelSettings } from './config.ts'
 import { FLYWHEEL_PERSONA } from './persona.ts'
 import { runClaimFlash } from './claim-flash-run.ts'
 import {
-  BackendNotMountedError, createFlywheelService, FLYWHEEL_SERVICE, FLYWHEEL_SETTINGS_NAMESPACE,
+  BackendNotMountedError, createFlywheelService, FLYWHEEL_SERVICE,
   type FlywheelService,
 } from './service.ts'
 
@@ -24,13 +24,45 @@ export { Config }
 /** The config `apply` receives from the composition layer (base, schema-defaulted). */
 export type { FlywheelSettings }
 
+/** Plain section, or the volatile reference DSH passes into `apply`. */
+type LiveSection = FlywheelSettings | { get(): FlywheelSettings }
+
+/** Read the current section. Volatile references update in place; plain objects do not. */
+function readSection(config: LiveSection): FlywheelSettings {
+  if (typeof config === 'object' && config !== null && 'get' in config && typeof config.get === 'function') {
+    return config.get()
+  }
+  return config as FlywheelSettings
+}
+
 /**
- * Register the namespace and provide `ctx.flywheel`. Without a settings provider
- * the composition entry stays authoritative (same fallback as bash / web-search).
+ * Reject a settings write the schema accepts but flywheel will not run:
+ * field rules, plus a backend that is not mounted. Runs only while the fiber
+ * is already active, so the first activation is not blocked on providers
+ * that mount after this plugin.
  */
-export function apply(ctx: Context, config: FlywheelSettings): void {
-  // The live source. installSection swaps this to the settings scope when one attaches.
-  let source: () => FlywheelSettings = () => config
+function assertSavable(service: FlywheelService, raw: unknown): void {
+  const parsed = Config(raw as FlywheelSettings)
+  const resolved = resolveConfig(readSection(parsed as LiveSection))
+  const fieldErrors = validateFlywheelConfig(resolved as unknown as Record<string, unknown>)
+  if (fieldErrors.length > 0) {
+    throw new TypeError(`flywheel: ${fieldErrors.map(error => `${error.field}: ${error.message}`).join('; ')}`)
+  }
+  if (!service.hasLexical(resolved.lexicalBackend)) {
+    throw new BackendNotMountedError('lexical', resolved.lexicalBackend)
+  }
+  if (resolved.vectorBackend !== 'off' && !service.hasVector('cloud')) {
+    throw new BackendNotMountedError('vector', 'cloud')
+  }
+}
+
+/**
+ * Register the settings page policy and provide `ctx.flywheel`. The composition
+ * entry stays authoritative until a settings write commits into the volatile
+ * config reference.
+ */
+export function apply(ctx: Context, config: LiveSection): void {
+  const source = () => readSection(config)
 
   const service: FlywheelService = createFlywheelService({
     config: () => resolveConfig(source()),
@@ -39,6 +71,13 @@ export function apply(ctx: Context, config: FlywheelSettings): void {
   })
 
   ctx.provide(FLYWHEEL_SERVICE, service)
+
+  ctx.on('internal/config', function (this: Fiber, _raw: unknown, next: () => unknown) {
+    const raw = next()
+    if (this !== ctx.fiber || this.state !== FiberState.ACTIVE) return raw
+    assertSavable(service, raw)
+    return raw
+  })
 
   ctx.inject(['systemPrompt'], (promptCtx) => {
     // Late system section (not runtime context): DSH wraps context snapshots in
@@ -52,26 +91,7 @@ export function apply(ctx: Context, config: FlywheelSettings): void {
   })
 
   ctx.inject(['settings'], (settingsCtx) => {
-    settingsCtx.settings.installSection(ctx, FLYWHEEL_SETTINGS_NAMESPACE, Config, config, {
-      setSource: (current) => { source = current },
-      validate: (value) => {
-        const resolved = resolveConfig(value)
-        const fieldErrors = validateFlywheelConfig(resolved as unknown as Record<string, unknown>)
-        if (fieldErrors.length > 0) {
-          throw new TypeError(`flywheel: ${fieldErrors.map(error => `${error.field}: ${error.message}`).join('; ')}`)
-        }
-        if (!service.hasLexical(resolved.lexicalBackend)) {
-          throw new BackendNotMountedError('lexical', resolved.lexicalBackend)
-        }
-        if (resolved.vectorBackend !== 'off' && !service.hasVector('cloud')) {
-          throw new BackendNotMountedError('vector', 'cloud')
-        }
-      },
-      onChange: () => {
-        // Live re-read: consumers call `service.config()` each pre-step, so no
-        // provider rebuild is required for K/maxChars. A backend switch is
-        // rejected at write time, so a hot mount always stays consistent.
-      },
-    })
+    // Custom page owns the section; the generated form would duplicate it.
+    settingsCtx.effect(() => settingsCtx.settings.configure({ auto: false }, ctx.fiber))
   })
 }

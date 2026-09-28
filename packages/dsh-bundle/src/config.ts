@@ -1,4 +1,4 @@
-/** Schemastery config schema for the `flywheel` settings namespace. Field names
+/** Schemastery config schema for the `flywheel-store` settings entry. Field names
  * and defaults mirror `@dsh-flywheel/core` DEFAULT_CONFIG and the CLI JSON schema.
  * The interface stays all-optional (repo convention: a consumer's `apply` fills
  * constants); `resolveConfig` produces the fully-defaulted core type. */
@@ -40,7 +40,8 @@ export interface Config {
   maxToolResultChars?: number
 }
 
-export const Config: z<Config> = z.object({
+/** Whole section is live: DSH 0.1.7 projects only volatile fields into settings forms. */
+export const Config = z.object({
   enabled: z.boolean().default(true),
   inject: z.boolean().default(true),
   tools: z.boolean().default(true),
@@ -71,7 +72,7 @@ export const Config: z<Config> = z.object({
   supersedePattern: z.string().default('不对|不是|改成|作废|作废上次|取消刚才|不要按上次|口径改了|需求变了'),
   trimToolResults: z.boolean().default(true),
   maxToolResultChars: z.number().step(1).min(1000).max(32000).default(4000),
-})
+}).volatile()
 
 /** Merge the settings section (schema-defaulted) over the core constants. */
 export function resolveConfig(config: Config): FlywheelConfig {

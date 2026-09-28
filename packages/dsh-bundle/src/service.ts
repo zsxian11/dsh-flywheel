@@ -27,8 +27,8 @@ export interface FlywheelService extends ProviderRegistry {
 /** Service-name consumers inject. Keep it namespaced: one small surface, not six memory tools. */
 export const FLYWHEEL_SERVICE = 'flywheel'
 
-/** Namespace key for the settings section + card pairing (never localized). */
-export const FLYWHEEL_SETTINGS_NAMESPACE = 'flywheel'
+/** Profile entry id of the store plugin (`cordis.patch.yml`). Settings forms are keyed by this id. */
+export const FLYWHEEL_SETTINGS_NAMESPACE = 'flywheel-store'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {

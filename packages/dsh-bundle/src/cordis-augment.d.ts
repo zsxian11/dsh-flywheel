@@ -8,17 +8,7 @@ declare module '@deepseek-ai/cordis' {
     flywheel: import('./service.ts').FlywheelService
     tools: { register(tool: unknown): unknown }
     settings: {
-      installSection(
-        ctx: Context,
-        namespace: string,
-        schema: unknown,
-        entry: unknown,
-        hooks: {
-          setSource: (current: () => import('./config.ts').Config) => void
-          validate: (value: import('./config.ts').Config) => void
-          onChange: () => void
-        },
-      ): unknown
+      configure(presentation: { auto?: boolean }, owner?: Context['fiber']): () => void
     }
     compaction?: {
       compactNow: (...args: unknown[]) => Promise<unknown> | unknown
