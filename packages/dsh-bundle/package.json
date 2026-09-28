@@ -82,7 +82,7 @@
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/schemastery": "^3.18.1",
+    "@deepseek-ai/schemastery": "^3.18.4",
     "@types/node": "^22.0.0",
     "@types/react": "~18.3.1",
     "lightningcss": "^1.32.0",
