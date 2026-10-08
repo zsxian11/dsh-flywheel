@@ -11,6 +11,9 @@ declare module '@deepseek-ai/dsh-system-prompt' {}
 declare module '@deepseek-ai/dsh-session' {
   export type Session = {
     id: string
+    /** Storage header carried on every session: the creation cwd is the project
+     * root the flywheel index lives under (see `project.ts`). */
+    header?: { cwd?: string }
     append(type: string, data: unknown, opts?: { surfaceOp?: string }): unknown
     [key: string]: unknown
   }
@@ -68,12 +71,17 @@ declare module '@deepseek-ai/dsh-tools' {
     additionalContexts?: unknown
     [key: string]: unknown
   }
+  /** Execution identity the real `execute(args, exec)` receives; only the owning
+   * agent (and through it the session's project root) is read here. */
+  export type ToolExecContext = {
+    agent?: { session: { id: string; header?: { cwd?: string } } }
+  }
   export function defineTool(spec: {
     name: string
     description: string
     parameters: unknown
     output: unknown
-    execute: (args: unknown) => unknown
+    execute: (args: unknown, exec: ToolExecContext) => unknown
     isConcurrencySafe?: boolean | (() => boolean)
   }): unknown
 }

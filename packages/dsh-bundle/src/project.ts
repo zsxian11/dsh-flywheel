@@ -1,15 +1,26 @@
 /** Project identity shared by the bundle plugins: root dir + project id.
- * v1: root = DSH_FLYWHEEL_ROOT ?? process.cwd(); projectId = basename(root).
- * The design's git-toplevel refinement and `.dsh/project.yml` override plug in here. */
+ * Root precedence: `DSH_FLYWHEEL_ROOT` → the session's creation cwd → `process.cwd()`.
+ * The Desktop app boots its host with cwd = the profile directory, so the session
+ * cwd is the only per-project source there; a CLI/tui launch from a project dir
+ * still resolves through the cwd fallback. v1 projectId is the root's basename,
+ * so two roots sharing a basename share one project id. */
 
 import { basename } from 'node:path'
 
-export function projectRoot(): string {
+/** The slice of a DSH session this module reads (`Session.header.cwd`), kept
+ * structural so consumers need no `@deepseek-ai/dsh-session` import. */
+export interface SessionWorkspace {
+  readonly header?: { readonly cwd?: string } | undefined
+}
+
+export function projectRoot(session?: SessionWorkspace | undefined): string {
   const env = process.env.DSH_FLYWHEEL_ROOT
   if (env !== undefined && env.length > 0) return env
+  const cwd = session?.header?.cwd
+  if (typeof cwd === 'string' && cwd.length > 0) return cwd
   return process.cwd()
 }
 
-export function projectId(): string {
-  return basename(projectRoot())
+export function projectId(session?: SessionWorkspace | undefined): string {
+  return basename(projectRoot(session))
 }

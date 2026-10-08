@@ -31,13 +31,13 @@ export function apply(ctx: Context): void {
       limit: { type: 'integer', description: 'Max results. Defaults to 10.' },
     },
     output: TEXT_OUTPUT,
-    execute: async (args) => {
+    execute: async (args, exec) => {
       const { query, limit } = args as { query: string; limit?: number }
       const graph = flywheel.graph()
       if (graph === undefined) return 'Flywheel index is not mounted.'
       const lexical = flywheel.lexical(flywheel.config().lexicalBackend)
       if (lexical === undefined) return 'Flywheel index is not mounted.'
-      const hits = await lexical.search(query, { projectId: projectId(), k: limit ?? 10 })
+      const hits = await lexical.search(query, { projectId: projectId(exec.agent?.session), k: limit ?? 10 })
       const nodes = await graph.nodes(hits.map(hit => hit.id))
       return renderNodes(nodes.values())
     },
@@ -52,13 +52,13 @@ export function apply(ctx: Context): void {
       limit: { type: 'integer', description: 'Max results. Defaults to 10.' },
     },
     output: TEXT_OUTPUT,
-    execute: async (args) => {
+    execute: async (args, exec) => {
       const { query, limit } = args as { query: string; limit?: number }
       const lexical = flywheel.lexical(flywheel.config().lexicalBackend)
       if (lexical === undefined) return 'Flywheel index is not mounted.'
       const graph = flywheel.graph()
       if (graph === undefined) return 'Flywheel index is not mounted.'
-      const hits = await lexical.search(query, { projectId: projectId(), k: limit ?? 10 })
+      const hits = await lexical.search(query, { projectId: projectId(exec.agent?.session), k: limit ?? 10 })
       const nodes = await graph.nodes(hits.map(hit => hit.id))
       const sessions = [...nodes.values()].filter(node => node.type === 'session')
       return renderNodes(sessions)

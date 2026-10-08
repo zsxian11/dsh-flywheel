@@ -24,7 +24,9 @@ declare module '@deepseek-ai/cordis' {
   }
   interface Events {
     'agent/pre-step'(...args: any[]): any
-    'agent/session-start'(...args: any[]): any
+    /** Fired for every live agent (fresh / resume / clear / compaction). DSH 0.2
+     * renamed the pre-0.2 `agent/session-start` event to this one. */
+    'agent/created'(...args: any[]): any
     'agent/turn-stopping'(...args: any[]): any
     'tools/result'(...args: any[]): any
     'tools/post-execute'(...args: any[]): any

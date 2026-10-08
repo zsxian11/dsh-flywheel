@@ -27,12 +27,16 @@ function background(ctx: Context, work: Promise<unknown>): void {
 export function apply(ctx: Context): void {
   const flywheel: FlywheelService = ctx.flywheel
 
-  ctx.on('agent/session-start', ({ agent }) => {
+  // `agent/created` is the live-agent hook in DSH 0.2.x (fresh / resume / clear
+  // / compaction). The pre-0.2 name `agent/session-start` no longer fires — it
+  // is absent from the installed DSH — so project and session nodes stopped
+  // being written once the host moved to 0.2.
+  ctx.on('agent/created', ({ agent }) => {
     try {
       const config = flywheel.config()
       if (!config.enabled) return
-      const id = projectId()
       const session = agent.session
+      const id = projectId(session)
       const now = Date.now()
       background(ctx, Promise.all([
         upsertProjectNode(flywheel, id, now),
@@ -53,10 +57,11 @@ export function apply(ctx: Context): void {
     if (path === undefined) return
     const suffix = claimSuffixOf(path)
     if (suffix === undefined) return
-    const id = artifactId(projectId(), toPosixPath(path))
-    const sessionId = exec.agent?.session.id as string | undefined
+    const session = exec.agent?.session
+    const id = artifactId(projectId(session), toPosixPath(path))
+    const sessionId = session?.id as string | undefined
     const artifact: NodeRecord = {
-      id, type: 'artifact', project_id: projectId(), title: basenameOf(path),
+      id, type: 'artifact', project_id: projectId(session), title: basenameOf(path),
       summary: '', body: '', path: toPosixPath(path), mime: mimeOf(suffix),
       status: 'active', extra: {}, updated_at: Date.now(),
     }
@@ -86,13 +91,13 @@ export function apply(ctx: Context): void {
     const id = claimNodeId()
     const now = Date.now()
     background(ctx, flywheel.ingest({
-      id, type: 'claim', project_id: projectId(), title: evidence.utterance.slice(0, 80),
+      id, type: 'claim', project_id: projectId(session), title: evidence.utterance.slice(0, 80),
       summary: '', body: evidence.utterance, status: 'active', session_id: session.id,
       extra: { utterance: evidence.utterance, purpose: evidence.purpose, extractor: 'generic' },
       updated_at: now,
     }))
     // Background flash rewrite; never awaited here (rule excerpt stays until it lands).
-    flywheel.queueClaimExtract(id, session.id, projectId(), evidence.utterance, [])
+    flywheel.queueClaimExtract(id, session.id, projectId(session), evidence.utterance, [])
   })
 
   // docs/changes/**/*.md writes become change nodes that SUPERSEDE the prior topic.
@@ -100,7 +105,7 @@ export function apply(ctx: Context): void {
     if (result.isError === true) return
     const path = writtenPath(exec.name, exec.arguments)
     if (path === undefined || !path.includes('docs/changes/')) return
-    background(ctx, ingestChange(flywheel, path, exec.agent?.session.id))
+    background(ctx, ingestChange(flywheel, path, exec.agent?.session))
   })
 }
 
@@ -128,14 +133,14 @@ async function supersedeRecent(flywheel: FlywheelService, session: Session): Pro
   await graph.supersede([...claims, ...changes])
 }
 
-async function ingestChange(flywheel: FlywheelService, path: string, sessionId: string | undefined): Promise<void> {
+async function ingestChange(flywheel: FlywheelService, path: string, session: Session | undefined): Promise<void> {
   const id = changeNodeId(toPosixPath(path))
   const node: NodeRecord = {
-    id, type: 'change', project_id: projectId(), title: basenameOf(path),
+    id, type: 'change', project_id: projectId(session), title: basenameOf(path),
     summary: '', body: '', path: toPosixPath(path), status: 'active',
     extra: {}, updated_at: Date.now(),
   }
-  if (sessionId !== undefined) node.session_id = sessionId
+  if (session !== undefined) node.session_id = session.id
   await flywheel.ingest(node)
 }
 

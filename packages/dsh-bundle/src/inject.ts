@@ -57,7 +57,7 @@ export function apply(ctx: Context): void {
 
       let result
       try {
-        result = await flywheel.retrieve({ projectId: projectId(), sessionId, query: userText })
+        result = await flywheel.retrieve({ projectId: projectId(agent.session), sessionId, query: userText })
       } catch (error) {
         ctx.logger?.warn?.(error)
         return extras.length === 0 ? decision : { ...decision, messages: [...extras, ...decision.messages] }
