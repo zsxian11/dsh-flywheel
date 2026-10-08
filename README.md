@@ -99,6 +99,20 @@ npx @deepseek-ai/dsh web --no-open
 
 飞轮管不了的杠杆（P0 用户配置，不在本仓）：瘦 preset（`coding-search` 含 `/plan` 与受限 web）、spill `maxInlineBytes: 12000`、compaction `thresholdRatio: 0.5` + `retainTokens: 16384`、逛代码不要用 High reasoning。换 Exa/Perplexity 搜索后端仍属后续 Host 项。
 
+## 项目根与数据库位置
+
+`projectRoot()` 依次取 `DSH_FLYWHEEL_ROOT` → 会话的 `session.header.cwd` → `process.cwd()`；
+`projectId` 是该根的目录名，DB 落在 `<项目根>/<dbRelativePath>`。
+
+会话 cwd 这一层是桌面版必需的：Electron 宿主的 cwd 是 profile 目录，只靠 `process.cwd()`
+会让所有工作区共用 `~/.dsh/profiles/<profile>/.dsh/flywheel/index.sqlite`、`projectId` 恒为
+`desktop`。宿主在插件挂载时会先按 cwd 挂一个空库（保证设置页校验 `lexicalBackend` 已挂载时
+不误报），首个会话建立后即切到会话项目根并弃用前者。
+
+已知限制：一个宿主同时只挂一个项目根（换根发生在 `agent/created`，不是每轮）。两个不同
+工作区的会话同时在跑时，后建立的 agent 决定当前 DB。检索 seam 只在 `search()` 上带
+`projectId`，graph 半边没有项目上下文，无法在多个已打开的 DB 之间路由。
+
 ## 检索协议（热路径唯一算法，§4.3）
 
 倒排 `search(query, { k: ftsK })`（active、当前项目）→ 可选向量 RRF（默认关）→ 恰好 1 跳（边集 PRODUCED/DESCRIBES/CITES/SUPERSEDES/CONTINUES/PART_OF）→ 展开 ≤ `hopExtra` → 丢弃仍 active 的 SUPERSEDES dst → 其它会话节点只留 title+summary（≤200 字）→ 渲染 ≤ `maxChars` → `digest = sha256(sorted ids + query + lexicalBackend)`，相同则 unchanged。全程零 LLM。
