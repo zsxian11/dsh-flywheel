@@ -11,6 +11,9 @@ export default {
       '@dsh-flywheel/core': resolve(root, 'packages/core/src/index.ts'),
       '@dsh-flywheel/lexical-sqlite': resolve(root, 'packages/lexical-sqlite/src/index.ts'),
       '@deepseek-ai/dsh-llm': resolve(root, 'packages/dsh-bundle/tests/dsh-llm-stub.ts'),
+      // `node:sqlite` is experimental and absent from `module.builtinModules`,
+      // so vite cannot recognize it as a builtin; this bridge resolves it.
+      'node:sqlite': resolve(root, 'packages/lexical-sqlite/tests/node-sqlite-shim.ts'),
     },
   },
   test: {

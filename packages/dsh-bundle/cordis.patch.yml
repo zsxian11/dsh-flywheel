@@ -43,6 +43,12 @@
     - id: flywheel-index
       name: '@dsh-flywheel/dsh-bundle/index'
 
+    # Host projection for the graph tab. Activates only when the Web shell
+    # provides `sessionProjections`; the tab falls back to its client fold
+    # otherwise, so a missing service never blanks the view.
+    - id: flywheel-graph-projection
+      name: '@dsh-flywheel/dsh-bundle/projection'
+
     - id: flywheel-window
       name: '@dsh-flywheel/dsh-bundle/window'
 

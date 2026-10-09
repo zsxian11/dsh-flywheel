@@ -6,7 +6,7 @@ import type {
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import {
   EMPTY_GRAPH_SNAPSHOT, factFromEvent, foldFacts, type GraphFact, type GraphSnapshot,
-} from './graph-fold.ts'
+} from '../graph-fold.ts'
 
 export const GRAPH_TARGET = 'flywheel-graph'
 

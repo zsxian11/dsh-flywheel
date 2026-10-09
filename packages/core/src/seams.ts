@@ -21,6 +21,8 @@ export interface GraphStore {
   getNode(id: string): Promise<NodeRecord | undefined>
   /** Recent active claim/change node ids of a session, newest first. */
   recentActiveSessionNodes(sessionId: string, type: 'claim' | 'change', limit: number): Promise<string[]>
+  /** Active artifact/change nodes of a project whose card digest is still missing. */
+  fileNodesNeedingDigest(projectId: string, limit: number): Promise<NodeRecord[]>
   /** Close the underlying store (called on provider disposal / process teardown). */
   close(): Promise<void>
 }

@@ -1,12 +1,21 @@
 /** Session-graph fold: working-set cards and file citations from the session log. */
 
 import { describe, expect, it } from 'vitest'
-import { factFromEvent, foldFacts, parseCardsFromContent } from '../src/client/graph-fold.ts'
+import { factFromEvent, foldFacts, parseCardsFromContent } from '../src/graph-fold.ts'
 import { fileRolesOf, pathFromToolArgs } from '../src/paths.ts'
 
 describe('pathFromToolArgs', () => {
   it('reads file_path and normalizes slashes', () => {
     expect(pathFromToolArgs({ file_path: 'src\\a.ts' })).toBe('src/a.ts')
+  })
+
+  it('parses model-produced JSON text (the shape a session event carries)', () => {
+    expect(pathFromToolArgs('{"file_path": "src/a.ts", "content": "x"}')).toBe('src/a.ts')
+  })
+
+  it('returns undefined for unparseable arguments text', () => {
+    expect(pathFromToolArgs('not json')).toBeUndefined()
+    expect(pathFromToolArgs('"a string"')).toBeUndefined()
   })
 
   it('ignores http destinations', () => {
@@ -88,6 +97,23 @@ describe('factFromEvent', () => {
     })).toEqual({
       kind: 'file', path: 'src/a.ts', tool: 'read', roles: ['opened'],
     })
+  })
+
+  it('records a read path from a real session event whose arguments are JSON text', () => {
+    expect(factFromEvent({
+      type: 'tool/call',
+      seq: 27,
+      data: { turn: 1, step: 1, callId: 'c1', name: 'read', arguments: '{"file_path":"src/paths.ts"}' },
+    })).toEqual({
+      kind: 'file', path: 'src/paths.ts', tool: 'read', roles: ['opened'],
+    })
+  })
+
+  it('ignores a tool call whose arguments text is malformed', () => {
+    expect(factFromEvent({
+      type: 'tool/call',
+      data: { name: 'write', callId: 'c1', arguments: '{"file_path": ' },
+    })).toBeNull()
   })
 })
 

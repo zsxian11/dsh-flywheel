@@ -23,7 +23,8 @@ The full plan lives in `_docs/flywheel-plugin-plan.md` (not restated here).
 | `flywheel-store` | `@dsh-flywheel/dsh-bundle/store` | Registers the `flywheel` settings namespace, provides `ctx.flywheel`, assembles providers from settings |
 | `flywheel-lexical-sqlite` | `@dsh-flywheel/dsh-bundle/lexical-sqlite` | Mounts `sqlite-fts` (required in v1) |
 | `flywheel-inject` | `@dsh-flywheel/dsh-bundle/inject` | `agent/pre-step` working-set injection (step 1 + real user message, digest dedupe) |
-| `flywheel-index` | `@dsh-flywheel/dsh-bundle/index` | File events + purpose-sentence ingest + correction supersede |
+| `flywheel-index` | `@dsh-flywheel/dsh-bundle/index` | File events + purpose-sentence ingest + correction supersede + graph edges (IN_PROJECT / PRODUCED / CITES / SUPERSEDES) |
+| `flywheel-graph-projection` | `@dsh-flywheel/dsh-bundle/projection` | Host session projection for the graph tab (`wire.view`); stays inactive without `sessionProjections` |
 | `flywheel-window` | `@dsh-flywheel/dsh-bundle/window` | Idle stage-switch `compactNow` |
 | `flywheel-trim` | `@dsh-flywheel/dsh-bundle/trim` | `tools/post-execute` bounds oversized tool results (including `read`, default 4000 chars) |
 | `tool-flywheel` | `@dsh-flywheel/dsh-bundle/tools` | `project_search` / `session_search` / `session_read` |

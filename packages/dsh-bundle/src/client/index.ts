@@ -12,7 +12,7 @@ import { FlywheelCard } from './FlywheelCard.tsx'
 import { FLYWHEEL_NS, FlywheelCardController } from './flywheel-card-controller.ts'
 import { en, zh, type FlywheelLocaleKey } from './locales.ts'
 import { registerGraphConversation, GRAPH_TARGET } from './graph-definition.ts'
-import { EMPTY_GRAPH_SNAPSHOT } from './graph-fold.ts'
+import { EMPTY_GRAPH_SNAPSHOT } from '../graph-fold.ts'
 import { graphEn, graphZh } from './graph-locales.ts'
 import { SessionGraphView, type SessionGraphInjected } from './SessionGraphView.tsx'
 

@@ -24,6 +24,10 @@
       "types": "./lib/types/indexer.d.ts",
       "default": "./lib/indexer.js"
     },
+    "./projection": {
+      "types": "./lib/types/projection.d.ts",
+      "default": "./lib/projection.js"
+    },
     "./window": {
       "types": "./lib/types/window.d.ts",
       "default": "./lib/window.js"

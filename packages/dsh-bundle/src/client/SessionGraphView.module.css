@@ -116,3 +116,124 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* --- drawn graph (host projection) --- */
+
+.canvas {
+  overflow: auto;
+  border: 1px solid var(--dsw-border, rgba(127, 127, 127, 0.3));
+  border-radius: 8px;
+  background: var(--dsw-surface, transparent);
+}
+
+.edge {
+  fill: none;
+  stroke-width: 1.4;
+  opacity: 0.75;
+}
+
+.edgeProduced {
+  stroke: var(--dsw-accent, #4f6ef7);
+}
+
+.edgeOpened {
+  stroke: #34a853;
+}
+
+.edgeInjected {
+  stroke: #b07d00;
+  stroke-dasharray: 4 3;
+}
+
+.nodeBox {
+  stroke: var(--dsw-border, rgba(127, 127, 127, 0.45));
+  stroke-width: 1;
+  fill: var(--dsw-surface, transparent);
+}
+
+.nodeBoxSession {
+  stroke: var(--dsw-accent, #4f6ef7);
+  stroke-width: 1.6;
+}
+
+.nodeBoxCard {
+  stroke-dasharray: 3 2;
+}
+
+.nodeBoxSelected {
+  stroke-width: 2.2;
+  filter: brightness(1.05);
+}
+
+.nodeLabel {
+  font-size: 11px;
+  fill: var(--dsw-text, currentColor);
+}
+
+.nodeDetail {
+  font-size: 9px;
+  fill: var(--dsw-text-secondary, rgba(127, 127, 127, 0.9));
+}
+
+.nodeHit {
+  cursor: pointer;
+}
+
+.detail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--dsw-border, rgba(127, 127, 127, 0.3));
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.detailPath {
+  color: var(--dsw-text-secondary, rgba(127, 127, 127, 0.9));
+  word-break: break-all;
+}
+
+.copy {
+  margin-left: auto;
+  padding: 4px 10px;
+  border: 1px solid var(--dsw-border, rgba(127, 127, 127, 0.3));
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsw-text, inherit);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--dsw-text-secondary, rgba(127, 127, 127, 0.9));
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legendSwatch {
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
+}
+
+.legendProduced {
+  background: var(--dsw-accent, #4f6ef7);
+}
+
+.legendOpened {
+  background: #34a853;
+}
+
+.legendInjected {
+  background: #b07d00;
+}

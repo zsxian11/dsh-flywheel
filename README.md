@@ -23,7 +23,8 @@ packages/dsh-bundle/          # DSH 侧 bundle：Host 插件 + Web 设置卡片�
 | `flywheel-store` | `@dsh-flywheel/dsh-bundle/store` | 注册 `flywheel` 设置 namespace，提供 `ctx.flywheel`，按设置组装 Provider |
 | `flywheel-lexical-sqlite` | `@dsh-flywheel/dsh-bundle/lexical-sqlite` | 挂载 `sqlite-fts`（v1 必装） |
 | `flywheel-inject` | `@dsh-flywheel/dsh-bundle/inject` | `agent/pre-step` 注入工作集（step 1 + 真人句，digest 去重） |
-| `flywheel-index` | `@dsh-flywheel/dsh-bundle/index` | 文件事件 + 用途句入库 + 纠正作废 |
+| `flywheel-index` | `@dsh-flywheel/dsh-bundle/index` | 文件事件 + 用途句入库 + 纠正作废 + 图边（IN_PROJECT / PRODUCED / CITES / SUPERSEDES） |
+| `flywheel-graph-projection` | `@dsh-flywheel/dsh-bundle/projection` | 会话图 host 投影（`wire.view`）；`sessionProjections` 缺席时不激活 |
 | `flywheel-window` | `@dsh-flywheel/dsh-bundle/window` | idle 换窗 `compactNow` |
 | `flywheel-trim` | `@dsh-flywheel/dsh-bundle/trim` | `tools/post-execute` 截断超大工具结果（含 `read`，默认 4000 字） |
 | `tool-flywheel` | `@dsh-flywheel/dsh-bundle/tools` | `project_search` / `session_search` / `session_read` |

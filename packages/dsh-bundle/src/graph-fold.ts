@@ -1,6 +1,6 @@
 /** Fold session-log facts into the session-graph snapshot. Pure: no Cordis. */
 
-import { fileRolesOf, pathFromToolArgs } from '../paths.ts'
+import { fileRolesOf, pathFromToolArgs } from './paths.ts'
 
 /** One working-set card as shown on the graph tab. */
 export interface GraphCard {

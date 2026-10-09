@@ -7,11 +7,12 @@ import type { Session } from '@deepseek-ai/dsh-session'
 import {
   artifactId, changeNodeId, claimNodeId, claimSuffixOf, detectClaim,
   isSupersedeUtterance, projectNodeId, sessionNodeId, SUPERSEDE_RECENT_LIMIT,
-  type NodeRecord,
+  type NewEdge, type NodeRecord,
 } from '@dsh-flywheel/core'
 import { FLYWHEEL_SERVICE, type FlywheelService } from './service.ts'
-import { projectId } from './project.ts'
-import { pathFromToolArgs } from './paths.ts'
+import { projectId, projectRoot } from './project.ts'
+import { fileRolesOf, pathFromToolArgs } from './paths.ts'
+import { readFileDigest } from './digest.ts'
 
 export const name = 'flywheel-index'
 
@@ -22,6 +23,26 @@ function background(ctx: Context, work: Promise<unknown>): void {
   void work.catch((error: unknown) => {
     ctx.logger?.warn?.(error)
   })
+}
+
+/** How many undigested file nodes one session-open backfill pass repairs. */
+export const DIGEST_BACKFILL_LIMIT = 200
+
+/** Project roots already repaired in this host process. */
+const backfilledRoots = new Set<string>()
+
+/**
+ * Write graph edges through the mounted store. Repeated writes are idempotent —
+ * the edge id is derived from src+rel+dst, and the store upserts by id.
+ * @param flywheel - the host service.
+ * @param edges - edges to record; skipped silently when no graph is mounted.
+ */
+async function linkEdges(flywheel: FlywheelService, edges: readonly NewEdge[]): Promise<void> {
+  const graph = flywheel.graph()
+  if (graph === undefined) return
+  for (const edge of edges) {
+    await graph.upsertEdge({ id: `${edge.src}:${edge.rel}:${edge.dst}`, ...edge, created_at: Date.now() })
+  }
 }
 
 export function apply(ctx: Context): void {
@@ -42,32 +63,59 @@ export function apply(ctx: Context): void {
         upsertProjectNode(flywheel, id, now),
         upsertSessionNode(flywheel, id, session, now),
       ]))
+      // Cards written before digests existed carry no recallable text; repair
+      // them once per root so old sessions show up in the working set too.
+      const root = projectRoot(session)
+      if (!backfilledRoots.has(root)) {
+        backfilledRoots.add(root)
+        background(ctx, backfillDigests(flywheel, root, id))
+      }
     } catch (error) {
       // Indexing must never veto agent publication (new session create).
       ctx.logger?.warn?.(error)
     }
   })
 
-  // File-producing tool results → artifact + PRODUCED edge (design §6.3).
+  // One written path → artifact (+PRODUCED edge) and/or a docs/changes change
+  // node. The card digest is read once from the file head so the node carries a
+  // real title/summary instead of only a basename (see `digest.ts`).
   ctx.on('tools/result', (exec, result) => {
     const config = flywheel.config()
     if (!config.enabled) return
     if (result.isError === true) return
     const path = writtenPath(exec.name, exec.arguments)
     if (path === undefined) return
-    const suffix = claimSuffixOf(path)
-    if (suffix === undefined) return
+    const posixPath = toPosixPath(path)
+    if (claimSuffixOf(posixPath) === undefined && !posixPath.includes('docs/changes/')) return
     const session = exec.agent?.session
-    const id = artifactId(projectId(session), toPosixPath(path))
-    const sessionId = session?.id as string | undefined
-    const artifact: NodeRecord = {
-      id, type: 'artifact', project_id: projectId(session), title: basenameOf(path),
-      summary: '', body: '', path: toPosixPath(path), mime: mimeOf(suffix),
-      status: 'active', extra: {}, updated_at: Date.now(),
-    }
-    if (sessionId !== undefined) artifact.session_id = sessionId
-    const produced = { src: sessionNodeId(sessionId ?? ''), rel: 'PRODUCED' as const, dst: id }
-    background(ctx, flywheel.ingest(artifact, [produced]))
+    background(ctx, ingestWrittenPath(flywheel, {
+      path: posixPath, root: projectRoot(session), session,
+    }))
+  })
+
+  // A read-class tool cites the artifact it opened, so the graph records which
+  // session looked at which file (the same relation the graph tab lists).
+  ctx.on('tools/result', (exec, result) => {
+    const config = flywheel.config()
+    if (!config.enabled) return
+    if (result.isError === true) return
+    if (!fileRolesOf(exec.name).includes('opened')) return
+    const session = exec.agent?.session
+    const sessionId = session?.id
+    if (sessionId === undefined) return
+    const path = pathFromToolArgs(exec.arguments)
+    if (path === undefined) return
+    const project = projectId(session)
+    const target = artifactId(project, toPosixPath(path))
+    const source = sessionNodeId(sessionId)
+    background(ctx, (async () => {
+      const graph = flywheel.graph()
+      if (graph === undefined) return
+      // Only link paths the flywheel already knows; otherwise the graph would
+      // fill with dangling artifact nodes for every file the agent greps.
+      if (await graph.getNode(target) === undefined) return
+      await linkEdges(flywheel, [{ src: source, rel: 'CITES', dst: target }])
+    })())
   })
 
   // Claim rules on real user text + assistant text (queued; not awaited).
@@ -99,14 +147,6 @@ export function apply(ctx: Context): void {
     // Background flash rewrite; never awaited here (rule excerpt stays until it lands).
     flywheel.queueClaimExtract(id, session.id, projectId(session), evidence.utterance, [])
   })
-
-  // docs/changes/**/*.md writes become change nodes that SUPERSEDE the prior topic.
-  ctx.on('tools/result', (exec, result) => {
-    if (result.isError === true) return
-    const path = writtenPath(exec.name, exec.arguments)
-    if (path === undefined || !path.includes('docs/changes/')) return
-    background(ctx, ingestChange(flywheel, path, exec.agent?.session))
-  })
 }
 
 async function upsertProjectNode(flywheel: FlywheelService, id: string, now: number): Promise<void> {
@@ -118,11 +158,12 @@ async function upsertProjectNode(flywheel: FlywheelService, id: string, now: num
 
 async function upsertSessionNode(flywheel: FlywheelService, id: string, session: Session, now: number): Promise<void> {
   const title = sessionTitle(session)
+  const nodeId = sessionNodeId(session.id)
   await flywheel.ingest({
-    id: sessionNodeId(session.id), type: 'session', project_id: id, title,
+    id: nodeId, type: 'session', project_id: id, title,
     summary: '', body: '', status: 'active', session_id: session.id,
     extra: {}, updated_at: now,
-  })
+  }, [{ src: nodeId, rel: 'IN_PROJECT', dst: projectNodeId(id) }])
 }
 
 async function supersedeRecent(flywheel: FlywheelService, session: Session): Promise<void> {
@@ -131,17 +172,87 @@ async function supersedeRecent(flywheel: FlywheelService, session: Session): Pro
   const claims = await graph.recentActiveSessionNodes(session.id, 'claim', SUPERSEDE_RECENT_LIMIT)
   const changes = await graph.recentActiveSessionNodes(session.id, 'change', SUPERSEDE_RECENT_LIMIT)
   await graph.supersede([...claims, ...changes])
+  // The status flip is what excludes them from recall; the edge records who
+  // revoked them, which is what a graph view can draw.
+  const source = sessionNodeId(session.id)
+  await linkEdges(flywheel, [...claims, ...changes].map(dst => ({ src: source, rel: 'SUPERSEDES' as const, dst })))
 }
 
-async function ingestChange(flywheel: FlywheelService, path: string, session: Session | undefined): Promise<void> {
-  const id = changeNodeId(toPosixPath(path))
-  const node: NodeRecord = {
-    id, type: 'change', project_id: projectId(session), title: basenameOf(path),
-    summary: '', body: '', path: toPosixPath(path), status: 'active',
-    extra: {}, updated_at: Date.now(),
+/**
+ * Give already-indexed artifact/change cards the digest they were written
+ * without. Best-effort and bounded; unreadable files simply stay as they are.
+ * @param flywheel - the host service (graph + lexical ingest).
+ * @param root - project root the stored relative paths resolve against.
+ * @param project - project id whose file nodes are repaired.
+ */
+async function backfillDigests(flywheel: FlywheelService, root: string, project: string): Promise<void> {
+  const graph = flywheel.graph()
+  if (graph === undefined) return
+  const nodes = await graph.fileNodesNeedingDigest(project, DIGEST_BACKFILL_LIMIT)
+  for (const node of nodes) {
+    if (node.path === undefined) continue
+    const digest = await readFileDigest(root, node.path)
+    if (digest === undefined || digest.summary === '') continue
+    await flywheel.ingest({
+      ...node,
+      title: digest.title ?? node.title,
+      summary: digest.summary,
+      updated_at: Date.now(),
+    })
   }
-  if (session !== undefined) node.session_id = session.id
-  await flywheel.ingest(node)
+}
+
+/** One written path awaiting indexing. */
+interface WrittenPath {
+  readonly path: string
+  /** Project root the relative path resolves against (also the digest read root). */
+  readonly root: string
+  readonly session: Session | undefined
+}
+
+/**
+ * Index one written file: a claim-suffix path becomes an artifact with a
+ * PRODUCED edge, a `docs/changes/` path becomes a change node, and both carry
+ * the file-head digest so the card is recallable by its own words.
+ * @param flywheel - the host service (graph + lexical ingest).
+ * @param input - written path, project root, and owning session.
+ */
+async function ingestWrittenPath(flywheel: FlywheelService, input: WrittenPath): Promise<void> {
+  const digest = await readFileDigest(input.root, input.path)
+  const project = projectId(input.session)
+  const sessionId = input.session?.id
+  const now = Date.now()
+  const title = digest?.title ?? basenameOf(input.path)
+  const summary = digest?.summary ?? ''
+
+  const suffix = claimSuffixOf(input.path)
+  if (suffix !== undefined) {
+    const id = artifactId(project, input.path)
+    const artifact: NodeRecord = {
+      id, type: 'artifact', project_id: project, title, summary, body: '',
+      path: input.path, mime: mimeOf(suffix), status: 'active', extra: {}, updated_at: now,
+    }
+    if (sessionId !== undefined) artifact.session_id = sessionId
+    const edges: NewEdge[] = [
+      { src: id, rel: 'IN_PROJECT', dst: projectNodeId(project) },
+    ]
+    if (sessionId !== undefined) edges.push({ src: sessionNodeId(sessionId), rel: 'PRODUCED', dst: id })
+    await flywheel.ingest(artifact, edges)
+  }
+
+  if (input.path.includes('docs/changes/')) {
+    const id = changeNodeId(input.path)
+    const node: NodeRecord = {
+      id, type: 'change', project_id: project, title, summary,
+      body: '', path: input.path, status: 'active', extra: {}, updated_at: now,
+    }
+    if (sessionId !== undefined) node.session_id = sessionId
+    const edges: NewEdge[] = [
+      { src: id, rel: 'IN_PROJECT', dst: projectNodeId(project) },
+    ]
+    if (sessionId !== undefined) edges.push({ src: sessionNodeId(sessionId), rel: 'PRODUCED', dst: id })
+    await flywheel.ingest(node, edges)
+  }
 }
 
 /** Extract the written path from a tool's args when the tool name/args carry one. */

@@ -9,8 +9,16 @@ import type {
   EdgeRecord, GraphStore, LexicalIndex, NodeRecord, ProviderRegistry, Rel,
 } from '@dsh-flywheel/core'
 
-/** On-disk schema version stamped into `meta.schema_version` (design §4.1: 1). */
-export const FLYWHEEL_SCHEMA_VERSION = 1
+/** On-disk schema version stamped into `meta.schema_version`.
+ * v2 switched `nodes_fts` to the `trigram` tokenizer so CJK queries match by
+ * substring; v1 databases are rebuilt in place on open (see `migrateSchema`). */
+export const FLYWHEEL_SCHEMA_VERSION = 2
+
+/** Gram width of the `trigram` tokenizer: query terms shorter than this cannot match. */
+export const FTS_GRAM = 3
+
+const CJK_RE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u
+const QUERY_CHUNK_RE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]+|[\p{L}\p{N}_]+/gu
 
 /** Single backend that serves lexical recall and graph hops from one sqlite file. */
 export interface SqliteFlywheelStore extends LexicalIndex, GraphStore {
@@ -55,20 +63,40 @@ function schemaVersionOf(value: unknown): number {
   return parsed
 }
 
-/** Idempotent schema application. Schema version mismatch fails loud (no in-place migration). */
+/** Idempotent schema application. A newer on-disk version fails loud; an older
+ * one is rebuilt in place, since the only change so far is the FTS tokenizer. */
 function applySchema(db: DatabaseSync, path: string): void {
   // The meta table is created before the version read so the check runs on
-  // first open too; a mismatched existing database is rejected before the rest.
+  // first open too; a too-new existing database is rejected before the rest.
   db.exec('CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL)')
   const row = db.prepare("SELECT v AS schema_version FROM meta WHERE k = 'schema_version'").get() as { schema_version: unknown } | undefined
   const current = schemaVersionOf(row?.schema_version)
-  if (current !== 0 && current !== FLYWHEEL_SCHEMA_VERSION) {
+  if (current > FLYWHEEL_SCHEMA_VERSION) {
     throw new Error(`flywheel database at "${path}" has schema version ${current}, incompatible with this build (${FLYWHEEL_SCHEMA_VERSION})`)
   }
+  migrateSchema(db, current)
   db.exec(SCHEMA_SQL)
-  if (current === 0) {
-    db.prepare("INSERT INTO meta (k, v) VALUES ('schema_version', ?)").run(String(FLYWHEEL_SCHEMA_VERSION))
+  if (current !== 0 && current < FLYWHEEL_SCHEMA_VERSION) rebuildFts(db)
+  if (current !== FLYWHEEL_SCHEMA_VERSION) {
+    db.prepare("INSERT INTO meta (k, v) VALUES ('schema_version', ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v")
+      .run(String(FLYWHEEL_SCHEMA_VERSION))
   }
+}
+
+/** Drop the artifacts of an older schema before `SCHEMA_SQL` recreates them. */
+function migrateSchema(db: DatabaseSync, current: number): void {
+  if (current === 0 || current >= FLYWHEEL_SCHEMA_VERSION) return
+  db.exec(`
+    DROP TRIGGER IF EXISTS nodes_ai;
+    DROP TRIGGER IF EXISTS nodes_ad;
+    DROP TRIGGER IF EXISTS nodes_au;
+    DROP TABLE IF EXISTS nodes_fts;
+  `)
+}
+
+/** Refill `nodes_fts` from `nodes` (external-content rebuild) after a tokenizer change. */
+function rebuildFts(db: DatabaseSync): void {
+  db.exec("INSERT INTO nodes_fts(nodes_fts) VALUES('rebuild')")
 }
 
 const SCHEMA_SQL = `
@@ -100,7 +128,8 @@ CREATE INDEX IF NOT EXISTS idx_nodes_session ON nodes(session_id);
 CREATE VIRTUAL TABLE IF NOT EXISTS nodes_fts USING fts5(
   title, summary, body, path,
   content='nodes',
-  content_rowid='rowid'
+  content_rowid='rowid',
+  tokenize='trigram'
 );
 
 CREATE TRIGGER IF NOT EXISTS nodes_ai AFTER INSERT ON nodes BEGIN
@@ -156,6 +185,51 @@ function rowToNode(row: Record<string, unknown>): NodeRecord {
   return node
 }
 
+/**
+ * Query terms for the `trigram` index: CJK runs are cut into overlapping
+ * {@link FTS_GRAM}-width grams (so a sentence recalls any card containing one of
+ * its phrases), other scripts keep whole words. Terms shorter than one gram are
+ * dropped — the LIKE fallback in `search` covers those.
+ * @param query - the verbatim user sentence (never rewritten by the caller).
+ */
+export function ftsTerms(query: string): string[] {
+  const terms: string[] = []
+  for (const chunk of query.match(QUERY_CHUNK_RE) ?? []) {
+    if (CJK_RE.test(chunk)) {
+      for (let i = 0; i + FTS_GRAM <= chunk.length; i += 1) terms.push(chunk.slice(i, i + FTS_GRAM))
+      continue
+    }
+    if (chunk.length < FTS_GRAM) continue
+    terms.push(chunk.toLowerCase())
+  }
+  return [...new Set(terms)]
+}
+
+/**
+ * One FTS5 MATCH expression built from {@link ftsTerms}, or undefined when the
+ * query yields no usable gram. Every term is quoted, so punctuation such as
+ * `-` or `:` can no longer be read as FTS5 syntax.
+ * @param query - the verbatim user sentence.
+ */
+export function ftsMatch(query: string): string | undefined {
+  const terms = ftsTerms(query)
+  if (terms.length === 0) return undefined
+  return terms.map(term => `"${term.replaceAll('"', '""')}"`).join(' OR ')
+}
+
+/** Substring recall for queries the gram index cannot serve (short or symbolic). */
+function likeRecall(db: DatabaseSync, raw: string, opts: { projectId: string; k: number }) {
+  const pattern = `%${raw.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_')}%`
+  const rows = db.prepare(`
+    SELECT id AS id FROM nodes
+    WHERE status = 'active' AND project_id = ?
+      AND (title LIKE ? ESCAPE '\\' OR summary LIKE ? ESCAPE '\\'
+        OR body LIKE ? ESCAPE '\\' OR path LIKE ? ESCAPE '\\')
+    LIMIT ?
+  `).all(opts.projectId, pattern, pattern, pattern, pattern, opts.k) as Array<{ id: string }>
+  return rows.map((row, index) => ({ id: row.id, score: -(index) }))
+}
+
 /** Build the concrete store from an already-open database. */
 export function createSqliteFlywheelStore(db: DatabaseSync, path: string): SqliteFlywheelStore {
   const upsertNodeStmt = db.prepare(`
@@ -173,17 +247,23 @@ export function createSqliteFlywheelStore(db: DatabaseSync, path: string): Sqlit
     id: 'sqlite-fts',
 
     async search(query, opts) {
-      const match = query.trim()
-      if (match === '') return []
-      const rows = db.prepare(`
-        SELECT n.id AS id
-        FROM nodes_fts f
-        JOIN nodes n ON n.rowid = f.rowid
-        WHERE nodes_fts MATCH ? AND n.status = 'active' AND n.project_id = ?
-        ORDER BY rank
-        LIMIT ?
-      `).all(match, opts.projectId, opts.k) as Array<{ id: string }>
-      return rows.map((row, index) => ({ id: row.id, score: -(index) }))
+      const raw = query.trim()
+      if (raw === '') return []
+      // A gram query can only match `trigram`-indexed text; the LIKE pass below
+      // covers the remaining shapes (queries shorter than one gram, etc.).
+      const match = ftsMatch(raw)
+      if (match !== undefined) {
+        const rows = db.prepare(`
+          SELECT n.id AS id
+          FROM nodes_fts f
+          JOIN nodes n ON n.rowid = f.rowid
+          WHERE nodes_fts MATCH ? AND n.status = 'active' AND n.project_id = ?
+          ORDER BY rank
+          LIMIT ?
+        `).all(match, opts.projectId, opts.k) as Array<{ id: string }>
+        if (rows.length > 0) return rows.map((row, index) => ({ id: row.id, score: -(index) }))
+      }
+      return likeRecall(db, raw, opts)
     },
 
     async upsert(node) {
@@ -265,6 +345,16 @@ export function createSqliteFlywheelStore(db: DatabaseSync, path: string): Sqlit
         ORDER BY updated_at DESC LIMIT ?
       `).all(sessionId, type, limit) as Array<{ id: string }>
       return rows.map(row => row.id)
+    },
+
+    async fileNodesNeedingDigest(projectId, limit) {
+      const rows = db.prepare(`
+        SELECT * FROM nodes
+        WHERE project_id = ? AND status = 'active' AND path IS NOT NULL
+          AND type IN ('artifact', 'change') AND summary = ''
+        ORDER BY updated_at DESC LIMIT ?
+      `).all(projectId, limit) as Array<Record<string, unknown>>
+      return rows.map(rowToNode)
     },
 
     async close() {
